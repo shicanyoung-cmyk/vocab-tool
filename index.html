@@ -387,98 +387,70 @@ let pickerRolling = false;
 let pickerInterval = null;
 let saving = false;
 
-// ========== Image Cache (IndexedDB) ==========
-const ImgCache = {
-  db: null,
-  queue: [],
-  processing: false,
-  DB_NAME: 'vocab-img-cache',
-  STORE: 'images',
+// ========== Image Loading ==========
+// Base URL for local images on GitHub Pages
+const IMG_BASE = 'images/';
 
-  async init() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open(this.DB_NAME, 1);
-      req.onupgradeneeded = e => e.target.result.createObjectStore(this.STORE, { keyPath: 'key' });
-      req.onsuccess = e => { this.db = e.target.result; resolve(); };
-      req.onerror = () => reject(req.error);
-    });
-  },
+// Try local image first, fallback to Pollinations API for new words
+async function loadImage(imgEl, word, imagePrompt, unitId) {
+  imgEl.dataset.word = word;
+  imgEl.alt = word;
 
-  async get(key) {
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(this.STORE, 'readonly');
-      const req = tx.objectStore(this.STORE).get(key);
-      req.onsuccess = () => resolve(req.result ? req.result.blob : null);
-      req.onerror = () => reject(req.error);
-    });
-  },
+  // 1. Try local image on GitHub Pages
+  const localUrl = IMG_BASE + unitId + '/' + word.toLowerCase() + '.png';
+  const localOk = await new Promise(resolve => {
+    const testImg = new Image();
+    testImg.onload = () => resolve(true);
+    testImg.onerror = () => resolve(false);
+    testImg.src = localUrl;
+  });
 
-  async set(key, blob) {
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(this.STORE, 'readwrite');
-      tx.objectStore(this.STORE).put({ key, blob });
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  },
-
-  cacheKey(word, prompt, seed) { return word + '|' + (prompt || '') + '|' + seed; },
-
-  // Load image: check cache → show placeholder → queue download
-  async load(imgEl, word, imagePrompt, unitId) {
-    const style = getUnitStyle(unitId);
-    const prompt = imagePrompt || generateDefaultPrompt(word, style);
-    const seed = md5Seed(word);
-    const key = this.cacheKey(word, prompt, seed);
-    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=512&height=512&model=flux&nologo=true&seed=' + seed;
-
-    // Check cache first
-    try {
-      const cached = await this.get(key);
-      if (cached) {
-        imgEl.src = URL.createObjectURL(cached);
-        return;
-      }
-    } catch (e) {}
-
-    // Show placeholder with word text
-    imgEl.style.background = '#e8edf3';
-    imgEl.dataset.word = word;
-    imgEl.alt = word;
-
-    // Queue for download
-    this.queue.push({ url, key, imgEl });
-    this._processQueue();
-  },
-
-  async _processQueue() {
-    if (this.processing || this.queue.length === 0) return;
-    this.processing = true;
-
-    while (this.queue.length > 0) {
-      const item = this.queue.shift();
-      if (!item.imgEl.isConnected) continue; // Element removed from DOM
-      try {
-        setStatus('Loading image: ' + (item.imgEl.dataset.word || '...'));
-        const resp = await fetch(item.url);
-        if (resp.ok) {
-          const blob = await resp.blob();
-          if (item.imgEl.isConnected) item.imgEl.src = URL.createObjectURL(blob);
-          await this.set(item.key, blob);
-        } else {
-          console.warn('Image load failed:', resp.status, item.url);
-        }
-      } catch (e) {
-        console.warn('Image fetch error:', e);
-      }
-      // Delay to avoid rate limiting (Pollinations allows 1 concurrent anonymous request)
-      await new Promise(r => setTimeout(r, 1500));
-    }
-
-    this.processing = false;
-    setStatus('Ready');
+  if (localOk) {
+    imgEl.src = localUrl;
+    return;
   }
-};
+
+  // 2. Fallback: generate via Pollinations API (sequential to avoid 429)
+  imgEl.style.background = '#e8edf3';
+  imgQueue.push({ imgEl, word, imagePrompt, unitId });
+  processImgQueue();
+}
+
+// Sequential download queue for Pollinations fallback
+const imgQueue = [];
+let imgProcessing = false;
+
+async function processImgQueue() {
+  if (imgProcessing || imgQueue.length === 0) return;
+  imgProcessing = true;
+  while (imgQueue.length > 0) {
+    const item = imgQueue.shift();
+    if (!item.imgEl.isConnected) continue;
+    try {
+      const style = getUnitStyle(item.unitId);
+      const prompt = item.imagePrompt || generateDefaultPrompt(item.word, style);
+      const seed = md5Seed(item.word);
+      const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=512&height=512&model=flux&nologo=true&seed=' + seed;
+      setStatus('Generating image: ' + item.word);
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        if (item.imgEl.isConnected) item.imgEl.src = URL.createObjectURL(blob);
+      }
+    } catch (e) {
+      console.warn('Image generation failed:', item.word, e);
+    }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  imgProcessing = false;
+  setStatus('Ready');
+}
+
+function loadLazyImages(container) {
+  container.querySelectorAll('img[data-src-word]').forEach(img => {
+    loadImage(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
+  });
+}
 
 // ========== Image Helpers ==========
 function md5Seed(word) {
@@ -506,15 +478,6 @@ function getUnitBook(unitId) {
 function getUnitName(unitId) {
   const u = APP_DATA.units.find(x => x.unit_id === unitId);
   return u ? u.unit_name : '';
-}
-
-// Helper: render an <img> tag that uses cached loading
-// Usage: replace <img src="..."> with <img data-src-word="xxx" data-src-unit="yyy" data-src-prompt="zzz">
-// Then call loadLazyImages(container) after inserting HTML
-function loadLazyImages(container) {
-  container.querySelectorAll('img[data-src-word]').forEach(img => {
-    ImgCache.load(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
-  });
 }
 
 // ========== GitHub API ==========
@@ -686,12 +649,12 @@ function openLightbox(word) {
   const w = APP_DATA.words.find(x => x.word === word);
   if (!w) return;
   const img = document.getElementById('lb-img');
-  // For lightbox, try to show from a card's cached blob URL first
+  // Try to reuse the card's image src (already loaded)
   const cardImg = document.querySelector('.card img[data-src-word="' + esc(word) + '"]');
-  if (cardImg && cardImg.src && cardImg.src.startsWith('blob:')) {
+  if (cardImg && cardImg.src && !cardImg.src.endsWith('.png')) {
     img.src = cardImg.src;
   } else {
-    ImgCache.load(img, w.word, w.image_prompt, w.unit_id);
+    loadImage(img, w.word, w.image_prompt, w.unit_id);
   }
   document.getElementById('lb-word').textContent = w.word;
   document.getElementById('lb-chinese').textContent = w.chinese;
@@ -982,7 +945,6 @@ async function loadApp() {
   const loading = document.getElementById('loading');
   loading.classList.remove('hidden');
   try {
-    await ImgCache.init();
     APP_DATA = await fetchData();
     setStatus('Loaded ' + APP_DATA.words.length + ' words, ' + APP_DATA.units.length + ' units');
     // Auto-select first book
