@@ -157,7 +157,7 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
 </head>
 <body>
 
-<!-- Loading --><!-- v2: local images -->
+<!-- Loading -->
 <div class="loading-overlay" id="loading">Loading...</div>
 
 <!-- Token Dialog -->
@@ -494,7 +494,7 @@ async function fetchData() {
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const json = await resp.json();
   dataSha = json.sha;
-  const decoded = atob(json.content);
+  const decoded = new TextDecoder('utf-8').decode(Uint8Array.from(atob(json.content), c => c.charCodeAt(0)));
   return JSON.parse(decoded);
 }
 
