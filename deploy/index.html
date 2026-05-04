@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>词汇教学工具</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2f5; color: #333; }
+
+/* ========== Token Modal ========== */
+.token-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.token-overlay.hidden { display: none; }
+.token-box { background: #fff; border-radius: 16px; padding: 32px; max-width: 440px; width: 90%; text-align: center; }
+.token-box h2 { font-size: 20px; margin-bottom: 8px; }
+.token-box p { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.6; }
+.token-box input { width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; outline: none; }
+.token-box input:focus { border-color: #4472C4; }
+.token-box button { padding: 10px 32px; background: #4472C4; color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
+.token-box button:hover { background: #3a5fa0; }
+.token-box a { color: #4472C4; font-size: 13px; }
+.token-error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
+
+/* ========== Header & Tabs ========== */
+.header { background: #4472C4; color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 20px; font-weight: 600; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.header-btn { background: rgba(255,255,255,0.2); color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.header-btn:hover { background: rgba(255,255,255,0.3); }
+.tabs { display: flex; background: #fff; border-bottom: 2px solid #e0e0e0; padding: 0 24px; }
+.tab { padding: 12px 24px; cursor: pointer; font-size: 15px; border-bottom: 3px solid transparent; color: #666; transition: all 0.2s; user-select: none; }
+.tab:hover { color: #4472C4; }
+.tab.active { color: #4472C4; border-bottom-color: #4472C4; font-weight: 600; }
+.tab-content { display: none; padding: 20px 24px; }
+.tab-content.active { display: flex; }
+
+/* ========== Tab Layout: Sidebar + Main ========== */
+.tab-body { display: flex; gap: 20px; width: 100%; height: calc(100vh - 160px); }
+.sidebar { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+.sidebar select { padding: 8px 10px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; background: #fff; }
+.sidebar select:focus { border-color: #4472C4; }
+.main-area { flex: 1; overflow-y: auto; }
+
+/* ========== Tab Controls ========== */
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.toggle-wrap { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #666; }
+.toggle { position: relative; width: 40px; height: 22px; background: #ccc; border-radius: 11px; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+.toggle.on { background: #4472C4; }
+.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+.toggle.on::after { transform: translateX(18px); }
+
+/* ========== Tab 1: Card Browse ========== */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.card { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #e8edf3; }
+.card img[src^="blob:"] { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.card-info { padding: 8px; text-align: center; }
+.card-word { font-size: 16px; font-weight: 600; }
+.card-chinese { font-size: 12px; color: #999; margin-top: 2px; display: none; }
+.show-chinese .card-chinese { display: block; }
+
+/* Lightbox */
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+.lightbox.show { display: flex; }
+.lightbox-content { background: #fff; border-radius: 12px; padding: 20px; max-width: 400px; text-align: center; }
+.lightbox-content img { width: 100%; max-height: 350px; object-fit: contain; border-radius: 8px; }
+.lb-word { font-size: 28px; font-weight: 700; margin: 12px 0 4px; }
+.lb-chinese { font-size: 16px; color: #888; }
+.lightbox-close { position: absolute; top: 20px; right: 24px; font-size: 32px; color: #fff; cursor: pointer; }
+
+/* ========== Tab 2: Random Picker ========== */
+.picker-main { max-width: 600px; margin: 0 auto; }
+.mode-btns { display: flex; gap: 10px; margin-bottom: 20px; }
+.mode-btn { padding: 10px 20px; border-radius: 8px; border: 2px solid #ccc; cursor: pointer; font-size: 14px; background: #fff; transition: all 0.2s; }
+.mode-btn.active { border-color: #4472C4; background: #4472C4; color: #fff; }
+.picker-stage { background: #fff; border-radius: 16px; padding: 40px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.08); min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.picker-display { font-size: 72px; font-weight: 700; color: #4472C4; min-height: 90px; display: flex; align-items: center; justify-content: center; }
+.picker-display.rolling { animation: roll 0.08s infinite; }
+@keyframes roll { 0% { opacity: 0.7; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } 100% { opacity: 0.7; transform: scale(0.97); } }
+.picker-display img { max-width: 250px; max-height: 250px; border-radius: 12px; object-fit: contain; }
+.picker-btn { margin-top: 24px; padding: 14px 48px; font-size: 18px; font-weight: 600; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+.picker-btn.start { background: #4472C4; color: #fff; }
+.picker-btn.start:hover { background: #3a5fa0; }
+.picker-btn.stop { background: #e74c3c; color: #fff; }
+.picker-btn.stop:hover { background: #c0392b; }
+.picker-btn:disabled { background: #ccc; cursor: not-allowed; }
+.picker-placeholder { color: #bbb; font-size: 16px; }
+
+/* ========== Tab 3: A4 Print ========== */
+.print-layout { display: flex; gap: 20px; height: calc(100vh - 160px); }
+.print-sidebar { width: 260px; flex-shrink: 0; background: #fff; border-radius: 10px; padding: 16px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 10px; }
+.print-sidebar h3 { font-size: 14px; color: #666; }
+.print-word-list { display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
+.print-word-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background 0.15s; }
+.print-word-item:hover { background: #f5f5f5; }
+.print-word-item input[type="checkbox"] { accent-color: #4472C4; width: 15px; height: 15px; }
+.print-word-item img { width: 26px; height: 26px; object-fit: cover; border-radius: 4px; }
+.print-actions { display: flex; gap: 8px; }
+.print-actions button { flex: 1; padding: 8px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-select-all { background: #e8f0fe; color: #4472C4; }
+.btn-print { background: #4472C4; color: #fff; }
+.btn-print:hover { background: #3a5fa0; }
+.selected-count { font-size: 12px; color: #888; text-align: center; }
+.print-preview-wrap { flex: 1; overflow-y: auto; background: #999; padding: 20px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.print-page { width: 210mm; min-height: 297mm; background: #fff; padding: 10mm; box-shadow: 0 2px 16px rgba(0,0,0,0.2); box-sizing: border-box; }
+.print-page-label { text-align: center; font-size: 11px; color: #aaa; margin-bottom: 4px; }
+.print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+.print-cell { display: flex; align-items: center; gap: 4mm; padding: 2mm; border: 1px dashed #ddd; border-radius: 6px; }
+.print-cell img { width: 28mm; height: 28mm; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
+.print-cell-text .pw { font-size: 14pt; font-weight: 700; }
+.print-cell-text .pc { font-size: 10pt; color: #888; margin-top: 1mm; }
+.hide-chinese .pc { display: none !important; }
+.print-empty { display: flex; align-items: center; justify-content: center; height: 297mm; color: #bbb; font-size: 16px; width: 210mm; background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,0.2); }
+
+/* ========== Tab 4: Admin ========== */
+.admin-section { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.admin-section h3 { font-size: 16px; margin-bottom: 12px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+.admin-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+.admin-form label { font-size: 13px; color: #666; }
+.admin-form input, .admin-form select { padding: 7px 10px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 13px; outline: none; }
+.admin-form input:focus, .admin-form select:focus { border-color: #4472C4; }
+.admin-btn { padding: 7px 16px; background: #4472C4; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.admin-btn:hover { background: #3a5fa0; }
+.admin-btn.danger { background: #e74c3c; }
+.admin-btn.danger:hover { background: #c0392b; }
+.admin-btn.small { padding: 4px 10px; font-size: 12px; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table th { background: #f5f7fa; padding: 8px 10px; text-align: left; font-weight: 600; border-bottom: 2px solid #ddd; }
+.admin-table td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+.admin-table tr:hover { background: #fafafa; }
+.admin-table img { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; }
+.admin-msg { padding: 8px 14px; border-radius: 6px; font-size: 13px; margin-top: 8px; display: none; }
+.admin-msg.ok { display: block; background: #d4edda; color: #155724; }
+.admin-msg.err { display: block; background: #f8d7da; color: #721c24; }
+.admin-search { width: 100%; padding: 8px 10px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 13px; margin-bottom: 12px; outline: none; }
+.admin-search:focus { border-color: #4472C4; }
+
+/* ========== Status Bar ========== */
+.status-bar { background: #fff; border-top: 1px solid #e0e0e0; padding: 6px 24px; font-size: 12px; color: #999; display: flex; justify-content: space-between; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; }
+
+/* ========== Loading ========== */
+.loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 1500; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #4472C4; }
+.loading-overlay.hidden { display: none; }
+
+/* ========== Print ========== */
+.print-area { display: none; }
+@media print {
+  @page { margin: 0; size: A4; }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+  .print-area .print-page { box-shadow: none; margin: 0; page-break-after: always; }
+  .print-area .print-page:last-child { page-break-after: auto; }
+  .print-area .print-page-label { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">Loading...</div>
+
+<!-- Token Dialog -->
+<div class="token-overlay" id="token-overlay">
+  <div class="token-box">
+    <h2>🔑 连接 GitHub</h2>
+    <p>输入你的 GitHub Personal Access Token 来读写词库数据。<br>Token 只会保存在你的浏览器中。</p>
+    <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxx">
+    <div class="token-error" id="token-error"></div>
+    <br>
+    <button onclick="connectToken()">连接</button>
+    <br><br>
+    <a href="https://github.com/settings/tokens/new" target="_blank">如何创建 Token？</a>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <h1>📚 词汇教学工具</h1>
+  <div class="header-actions">
+    <button class="header-btn" onclick="showTokenDialog()">🔑 Token</button>
+    <button class="header-btn" onclick="refreshData()">🔄 刷新</button>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" data-tab="cards">📖 卡片浏览</div>
+  <div class="tab" data-tab="picker">🎲 随机抽取</div>
+  <div class="tab" data-tab="print">🖨️ A4打印</div>
+  <div class="tab" data-tab="admin">⚙️ 管理</div>
+</div>
+
+<!-- Tab 1: Card Browse -->
+<div class="tab-content active" id="tab-cards">
+  <div class="tab-body">
+    <div class="sidebar">
+      <select id="card-book" onchange="onBookChange('card')"><option value="">-- 选择书 --</option></select>
+      <select id="card-unit" onchange="onUnitChange('card')"><option value="__all__">全部单元</option></select>
+      <div class="toggle-wrap">
+        显示中文
+        <div class="toggle" id="toggle-chinese" onclick="toggleChinese()"></div>
+      </div>
+    </div>
+    <div class="main-area" id="card-grid"></div>
+  </div>
+</div>
+
+<!-- Tab 2: Random Picker -->
+<div class="tab-content" id="tab-picker">
+  <div class="tab-body">
+    <div class="sidebar">
+      <select id="picker-book" onchange="onBookChange('picker')"><option value="">-- 选择书 --</option></select>
+      <select id="picker-unit" onchange="onUnitChange('picker')"><option value="__all__">全部单元</option></select>
+      <div class="mode-btns">
+        <div class="mode-btn active" data-mode="image" onclick="setPickerMode('image')">🖼️ 抽图片</div>
+        <div class="mode-btn" data-mode="word" onclick="setPickerMode('word')">🔤 抽单词</div>
+      </div>
+    </div>
+    <div class="main-area">
+      <div class="picker-main">
+        <div class="picker-stage">
+          <div class="picker-display" id="picker-display"><span class="picker-placeholder">选择书和单元后开始</span></div>
+          <button class="picker-btn start" id="picker-btn" onclick="togglePicker()" disabled>开始抽取</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 3: A4 Print -->
+<div class="tab-content" id="tab-print">
+  <div class="print-layout">
+    <div class="print-sidebar">
+      <h3>选择要打印的单词</h3>
+      <select id="print-book" onchange="onBookChange('print')"><option value="">-- 选择书 --</option></select>
+      <select id="print-unit" onchange="onUnitChange('print')"><option value="__all__">全部单元</option></select>
+      <div class="toggle-wrap">
+        打印中文
+        <div class="toggle" id="toggle-print-chinese" onclick="togglePrintChinese()"></div>
+      </div>
+      <div class="print-word-list" id="print-word-list"></div>
+      <div class="selected-count" id="selected-count">已选 0 个</div>
+      <div class="print-actions">
+        <button class="btn-select-all" onclick="toggleSelectAll()">全选/取消</button>
+        <button class="btn-print" onclick="window.print()">打印</button>
+      </div>
+    </div>
+    <div class="print-preview-wrap" id="print-preview">
+      <div class="print-empty">在左侧勾选单词后预览</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 4: Admin -->
+<div class="tab-content" id="tab-admin">
+  <div style="width:100%;overflow-y:auto;height:calc(100vh - 160px);padding-right:4px;">
+    <!-- Books -->
+    <div class="admin-section">
+      <h3>📚 书管理</h3>
+      <div class="admin-form" id="admin-book-form">
+        <label>书名<br><input id="new-book-name" placeholder="e.g. Power Up 1" style="width:200px"></label>
+        <button class="admin-btn" id="book-add-btn" onclick="addBook()">添加</button>
+        <button class="admin-btn" id="book-update-btn" onclick="updateBook()" style="display:none">更新</button>
+        <button class="admin-btn" id="book-cancel-btn" onclick="cancelEditBook()" style="display:none">取消</button>
+      </div>
+      <input class="admin-search" id="book-search" placeholder="搜索书名..." oninput="searchBook=this.value;renderBookTable()">
+      <table class="admin-table" id="admin-book-table"><thead><tr><th>ID</th><th>书名</th><th>操作</th></tr></thead><tbody></tbody></table>
+      <div class="admin-msg" id="book-msg"></div>
+    </div>
+    <!-- Units -->
+    <div class="admin-section">
+      <h3>📁 单元管理</h3>
+      <div class="admin-form" id="admin-unit-form">
+        <label>所属书<br><select id="new-unit-book" style="width:160px"></select></label>
+        <label>单元名<br><input id="new-unit-name" placeholder="e.g. Colors" style="width:160px"></label>
+        <label>图片风格<br><select id="new-unit-style"><option value="photo">实物照片</option><option value="cartoon">卡通插画</option></select></label>
+        <button class="admin-btn" id="unit-add-btn" onclick="addUnit()">添加</button>
+        <button class="admin-btn" id="unit-update-btn" onclick="updateUnit()" style="display:none">更新</button>
+        <button class="admin-btn" id="unit-cancel-btn" onclick="cancelEditUnit()" style="display:none">取消</button>
+      </div>
+      <input class="admin-search" id="unit-search" placeholder="搜索单元名..." oninput="searchUnit=this.value;renderUnitTable()">
+      <table class="admin-table" id="admin-unit-table"><thead><tr><th>ID</th><th>单元名</th><th>所属书</th><th>风格</th><th>操作</th></tr></thead><tbody></tbody></table>
+      <div class="admin-msg" id="unit-msg"></div>
+    </div>
+    <!-- Words -->
+    <div class="admin-section">
+      <h3>📝 单词管理</h3>
+      <div class="admin-form" id="admin-word-form">
+        <label>所属单元<br><select id="new-word-unit" style="width:160px"></select></label>
+        <label>单词<br><input id="new-word-en" placeholder="e.g. apple" style="width:120px"></label>
+        <label>中文<br><input id="new-word-cn" placeholder="e.g. 苹果" style="width:100px"></label>
+        <label>图片描述(可选)<br><input id="new-word-prompt" placeholder="留空自动生成" style="width:180px"></label>
+        <button class="admin-btn" id="word-add-btn" onclick="addWord()">添加</button>
+        <button class="admin-btn" id="word-update-btn" onclick="updateWord()" style="display:none">更新</button>
+        <button class="admin-btn" id="word-cancel-btn" onclick="cancelEditWord()" style="display:none">取消</button>
+        <button class="admin-btn" style="background:#e67e22;margin-left:8px;" onclick="downloadWordTemplate()">📥 下载模板</button>
+        <button class="admin-btn" style="background:#27ae60;" onclick="document.getElementById('word-file-input').click()">📤 批量导入</button>
+        <input type="file" id="word-file-input" accept=".csv,.tsv,.txt" style="display:none" onchange="handleWordFile(event)">
+      </div>
+      <input class="admin-search" id="word-search" placeholder="搜索单词或中文..." oninput="searchWord=this.value;renderWordTable()">
+      <table class="admin-table" id="admin-word-table"><thead><tr><th>预览</th><th>单词</th><th>中文</th><th>单元</th><th>操作</th></tr></thead><tbody></tbody></table>
+      <div class="admin-msg" id="word-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Print Area (hidden, shown only when printing) -->
+<div class="print-area" id="print-area"></div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">&times;</span>
+  <div class="lightbox-content" onclick="event.stopPropagation()">
+    <img id="lb-img" src="">
+    <div class="lb-word" id="lb-word"></div>
+    <div class="lb-chinese" id="lb-chinese"></div>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar"><span id="status-text">Ready</span><span id="data-sha"></span></div>
+
+<script>
+// ========== MD5 (compact, matches Python hashlib.md5) ==========
+const MD5 = (function() {
+  function safeAdd(x, y) { var lsw = (x & 0xFFFF) + (y & 0xFFFF); return (((x >> 16) + (y >> 16) + (lsw >> 16)) << 16) | (lsw & 0xFFFF); }
+  function bitRotateLeft(n, c) { return (n << c) | (n >>> (32 - c)); }
+  function md5cmn(q, a, b, x, s, t) { return safeAdd(bitRotateLeft(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b); }
+  function md5ff(a, b, c, d, x, s, t) { return md5cmn((b & c) | ((~b) & d), a, b, x, s, t); }
+  function md5gg(a, b, c, d, x, s, t) { return md5cmn((b & d) | (c & (~d)), a, b, x, s, t); }
+  function md5hh(a, b, c, d, x, s, t) { return md5cmn(b ^ c ^ d, a, b, x, s, t); }
+  function md5ii(a, b, c, d, x, s, t) { return md5cmn(c ^ (b | (~d)), a, b, x, s, t); }
+  function binlMD5(x, len) {
+    x[len >> 5] |= 0x80 << (len % 32); x[((len + 64) >>> 9 << 4) + 14] = len;
+    var a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+    for (var i = 0; i < x.length; i += 16) {
+      var oa = a, ob = b, oc = c, od = d;
+      a = md5ff(a,b,c,d,x[i],7,-680876936); d = md5ff(d,a,b,c,x[i+1],12,-389564586); c = md5ff(c,d,a,b,x[i+2],17,606105819); b = md5ff(b,c,d,a,x[i+3],22,-1044525330);
+      a = md5ff(a,b,c,d,x[i+4],7,-176418897); d = md5ff(d,a,b,c,x[i+5],12,1200080426); c = md5ff(c,d,a,b,x[i+6],17,-1473231341); b = md5ff(b,c,d,a,x[i+7],22,-45705983);
+      a = md5ff(a,b,c,d,x[i+8],7,1770035416); d = md5ff(d,a,b,c,x[i+9],12,-1958414417); c = md5ff(c,d,a,b,x[i+10],17,-42063); b = md5ff(b,c,d,a,x[i+11],22,-1990404162);
+      a = md5ff(a,b,c,d,x[i+12],7,1804603682); d = md5ff(d,a,b,c,x[i+13],12,-40341101); c = md5ff(c,d,a,b,x[i+14],17,-1502002290); b = md5ff(b,c,d,a,x[i+15],22,1236535329);
+      a = md5gg(a,b,c,d,x[i+1],5,-165796510); d = md5gg(d,a,b,c,x[i+6],9,-1069501632); c = md5gg(c,d,a,b,x[i+11],14,643717713); b = md5gg(b,c,d,a,x[i],20,-373897302);
+      a = md5gg(a,b,c,d,x[i+5],5,-701558691); d = md5gg(d,a,b,c,x[i+10],9,38016083); c = md5gg(c,d,a,b,x[i+15],14,-660478335); b = md5gg(b,c,d,a,x[i+4],20,-405537848);
+      a = md5gg(a,b,c,d,x[i+9],5,568446438); d = md5gg(d,a,b,c,x[i+14],9,-1019803690); c = md5gg(c,d,a,b,x[i+3],14,-187363961); b = md5gg(b,c,d,a,x[i+8],20,1163531501);
+      a = md5gg(a,b,c,d,x[i+13],5,-1444681467); d = md5gg(d,a,b,c,x[i+2],9,-51403784); c = md5gg(c,d,a,b,x[i+7],14,1735328473); b = md5gg(b,c,d,a,x[i+12],20,-1926607734);
+      a = md5hh(a,b,c,d,x[i+5],4,-378558); d = md5hh(d,a,b,c,x[i+8],11,-2022574463); c = md5hh(c,d,a,b,x[i+11],16,1839030562); b = md5hh(b,c,d,a,x[i+14],23,-35309556);
+      a = md5hh(a,b,c,d,x[i+1],4,-1530992060); d = md5hh(d,a,b,c,x[i+4],11,1272893353); c = md5hh(c,d,a,b,x[i+7],16,-155497632); b = md5hh(b,c,d,a,x[i+10],23,-1094730640);
+      a = md5hh(a,b,c,d,x[i+13],4,681279174); d = md5hh(d,a,b,c,x[i],11,-358537222); c = md5hh(c,d,a,b,x[i+3],16,-722521979); b = md5hh(b,c,d,a,x[i+6],23,76029189);
+      a = md5hh(a,b,c,d,x[i+9],4,-640364487); d = md5hh(d,a,b,c,x[i+12],11,-421815835); c = md5hh(c,d,a,b,x[i+15],16,530742520); b = md5hh(b,c,d,a,x[i+2],23,-995338651);
+      a = md5ii(a,b,c,d,x[i],6,-198630844); d = md5ii(d,a,b,c,x[i+7],10,1126891415); c = md5ii(c,d,a,b,x[i+14],15,-1416354905); b = md5ii(b,c,d,a,x[i+5],21,-57434055);
+      a = md5ii(a,b,c,d,x[i+12],6,1700485571); d = md5ii(d,a,b,c,x[i+3],10,-1894986606); c = md5ii(c,d,a,b,x[i+10],15,-1051523); b = md5ii(b,c,d,a,x[i+1],21,-2054922799);
+      a = md5ii(a,b,c,d,x[i+8],6,1873313359); d = md5ii(d,a,b,c,x[i+15],10,-30611744); c = md5ii(c,d,a,b,x[i+6],15,-1560198380); b = md5ii(b,c,d,a,x[i+13],21,1309151649);
+      a = md5ii(a,b,c,d,x[i+4],6,-145523070); d = md5ii(d,a,b,c,x[i+11],10,-1120210379); c = md5ii(c,d,a,b,x[i+2],15,718787259); b = md5ii(b,c,d,a,x[i+9],21,-343485551);
+      a = safeAdd(a, oa); b = safeAdd(b, ob); c = safeAdd(c, oc); d = safeAdd(d, od);
+    }
+    return [a, b, c, d];
+  }
+  function binl2hex(binarray) {
+    var hex = '0123456789abcdef', str = '';
+    for (var i = 0; i < binarray.length * 32; i += 8) str += hex.charAt((binarray[i >> 5] >>> (i % 32)) & 0xF) + hex.charAt((binarray[i >> 5] >>> (i % 32 + 4)) & 0xF);
+    return str;
+  }
+  function rstrMD5(s) {
+    var n = s.length, state = [1732584193, -271733879, -1732584194, 271733878], i;
+    for (i = 64; i <= s.length; i += 64) state = binlMD5(s.slice(i - 64, i), 64);
+    s = s.slice(i - 64);
+    var tail = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    for (i = 0; i < s.length; i++) tail[i >> 2] |= s.charCodeAt(i) << ((i % 4) << 3);
+    tail[i >> 2] |= 0x80 << ((i % 4) << 3);
+    if (i > 55) { state = binlMD5(tail, 64); tail = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]; }
+    tail[14] = n * 8;
+    return binlMD5(tail, s.length);
+  }
+  return function(str) { return binl2hex(rstrMD5(str)); };
+})();
+
+// ========== Config ==========
+const GH = {
+  owner: 'shicanyoung-cmyk',
+  repo: 'vocab-tool',
+  dataPath: 'words.json',
+  apiBase: 'https://api.github.com'
+};
+
+const COLORS = ['red','blue','yellow','green','orange','purple','pink','black','white','brown','grey','gray','gold','silver'];
+
+// ========== State ==========
+let APP_DATA = { books: [], units: [], words: [] };
+let dataSha = '';
+let currentTab = 'cards';
+let selectedBooks = { card: '', picker: '', print: '' };
+let selectedUnits = { card: '__all__', picker: '__all__', print: '__all__' };
+let showChinese = false;
+let showPrintChinese = false;
+let selectedPrintWords = new Set();
+let pickerMode = 'image';
+let pickerRolling = false;
+let pickerInterval = null;
+let saving = false;
+let editingBookId = null;
+let editingUnitId = null;
+let editingWord = null;
+let searchBook = '';
+let searchUnit = '';
+let searchWord = '';
+
+// ========== Image Loading ==========
+// Base URL for local images on GitHub Pages
+const IMG_BASE = 'images/';
+
+// Try local image first, fallback to Pollinations API for new words
+async function loadImage(imgEl, word, imagePrompt, unitId) {
+  imgEl.dataset.word = word;
+  imgEl.alt = word;
+
+  // 1. Try local image on GitHub Pages
+  const localUrl = IMG_BASE + unitId + '/' + word.toLowerCase() + '.png';
+  const localOk = await new Promise(resolve => {
+    const testImg = new Image();
+    testImg.onload = () => resolve(true);
+    testImg.onerror = () => resolve(false);
+    testImg.src = localUrl;
+  });
+
+  if (localOk) {
+    imgEl.src = localUrl;
+    return;
+  }
+
+  // 2. Fallback: generate via Pollinations API (sequential to avoid 429)
+  imgEl.style.background = '#e8edf3';
+  imgQueue.push({ imgEl, word, imagePrompt, unitId });
+  processImgQueue();
+}
+
+// Sequential download queue for Pollinations fallback
+const imgQueue = [];
+let imgProcessing = false;
+
+async function processImgQueue() {
+  if (imgProcessing || imgQueue.length === 0) return;
+  imgProcessing = true;
+  while (imgQueue.length > 0) {
+    const item = imgQueue.shift();
+    if (!item.imgEl.isConnected) continue;
+    try {
+      const style = getUnitStyle(item.unitId);
+      const prompt = item.imagePrompt || generateDefaultPrompt(item.word, style);
+      const seed = md5Seed(item.word);
+      const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=512&height=512&model=flux&nologo=true&seed=' + seed;
+      setStatus('Generating image: ' + item.word);
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        if (item.imgEl.isConnected) item.imgEl.src = URL.createObjectURL(blob);
+      }
+    } catch (e) {
+      console.warn('Image generation failed:', item.word, e);
+    }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  imgProcessing = false;
+  setStatus('Ready');
+}
+
+function loadLazyImages(container) {
+  container.querySelectorAll('img[data-src-word]').forEach(img => {
+    loadImage(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
+  });
+}
+
+// ========== Image Helpers ==========
+function md5Seed(word) {
+  return parseInt(MD5(word).substring(0, 8), 16);
+}
+
+function generateDefaultPrompt(word, style) {
+  if (COLORS.includes(word.toLowerCase())) return word + ' color fill, clean';
+  if (style === 'cartoon') return 'cute cartoon ' + word + ', simple white background';
+  return word + ', white background, product photo';
+}
+
+function getUnitStyle(unitId) {
+  const u = APP_DATA.units.find(x => x.unit_id === unitId);
+  return u ? (u.image_style || 'photo') : 'photo';
+}
+
+function getUnitBook(unitId) {
+  const u = APP_DATA.units.find(x => x.unit_id === unitId);
+  if (!u) return '';
+  const b = APP_DATA.books.find(x => x.book_id === u.book_id);
+  return b ? b.book_name : '';
+}
+
+function getUnitName(unitId) {
+  const u = APP_DATA.units.find(x => x.unit_id === unitId);
+  return u ? u.unit_name : '';
+}
+
+// ========== GitHub API ==========
+function getToken() { return localStorage.getItem('gh_token') || ''; }
+function setToken(t) { localStorage.setItem('gh_token', t); }
+
+function ghHeaders() {
+  return { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/vnd.github.v3+json' };
+}
+
+async function fetchData() {
+  const resp = await fetch(GH.apiBase + '/repos/' + GH.owner + '/' + GH.repo + '/contents/' + GH.dataPath, { headers: ghHeaders() });
+  if (resp.status === 401) throw new Error('Token 无效或已过期');
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const json = await resp.json();
+  dataSha = json.sha;
+  const decoded = new TextDecoder('utf-8').decode(Uint8Array.from(atob(json.content), c => c.charCodeAt(0)));
+  return JSON.parse(decoded);
+}
+
+async function saveData(data) {
+  if (saving) return;
+  saving = true;
+  setStatus('Saving...');
+  try {
+    // Re-fetch to get latest SHA
+    const resp = await fetch(GH.apiBase + '/repos/' + GH.owner + '/' + GH.repo + '/contents/' + GH.dataPath, { headers: ghHeaders() });
+    if (!resp.ok) throw new Error('Fetch SHA failed: ' + resp.status);
+    const json = await resp.json();
+    dataSha = json.sha;
+
+    const raw = JSON.stringify(data, null, 2);
+    const bytes = new TextEncoder().encode(raw);
+    const binary = Array.from(bytes, b => String.fromCharCode(b)).join('');
+    const content = btoa(binary);
+    const putResp = await fetch(GH.apiBase + '/repos/' + GH.owner + '/' + GH.repo + '/contents/' + GH.dataPath, {
+      method: 'PUT',
+      headers: ghHeaders(),
+      body: JSON.stringify({ message: 'Update words.json', content: content, sha: dataSha })
+    });
+    if (!putResp.ok) {
+      const err = await putResp.json();
+      throw new Error(err.message || 'Save failed');
+    }
+    const putJson = await putResp.json();
+    dataSha = putJson.content.sha;
+    setStatus('Saved ✓');
+  } catch (e) {
+    setStatus('Save error: ' + e.message);
+    throw e;
+  } finally {
+    saving = false;
+  }
+}
+
+async function checkToken() {
+  const resp = await fetch(GH.apiBase + '/user', { headers: ghHeaders() });
+  if (!resp.ok) throw new Error('Token 无效');
+  return await resp.json();
+}
+
+// ========== Token Dialog ==========
+function showTokenDialog() {
+  document.getElementById('token-overlay').classList.remove('hidden');
+  document.getElementById('token-input').value = getToken();
+}
+
+async function connectToken() {
+  const token = document.getElementById('token-input').value.trim();
+  if (!token) return;
+  setToken(token);
+  document.getElementById('token-error').style.display = 'none';
+  try {
+    await checkToken();
+    document.getElementById('token-overlay').classList.add('hidden');
+    await loadApp();
+  } catch (e) {
+    document.getElementById('token-error').textContent = e.message;
+    document.getElementById('token-error').style.display = 'block';
+  }
+}
+
+// ========== Book/Unit Selectors ==========
+function getFilteredWords(tab) {
+  const bookId = selectedBooks[tab];
+  if (!bookId) return [];
+  const unitId = selectedUnits[tab];
+  const unitIds = unitId === '__all__'
+    ? APP_DATA.units.filter(u => u.book_id === bookId).map(u => u.unit_id)
+    : [unitId];
+  return APP_DATA.words.filter(w => unitIds.includes(w.unit_id));
+}
+
+function populateBookSelect(tab) {
+  const sel = document.getElementById(tab + '-book');
+  const val = selectedBooks[tab];
+  sel.innerHTML = '<option value="">-- 选择书 --</option>';
+  APP_DATA.books.forEach(b => {
+    sel.innerHTML += '<option value="' + b.book_id + '">' + b.book_name + '</option>';
+  });
+  sel.value = val;
+}
+
+function populateUnitSelect(tab) {
+  const sel = document.getElementById(tab + '-unit');
+  const val = selectedUnits[tab];
+  const bookId = selectedBooks[tab];
+  const units = bookId ? APP_DATA.units.filter(u => u.book_id === bookId) : [];
+  sel.innerHTML = '<option value="__all__">全部单元</option>';
+  units.forEach(u => {
+    sel.innerHTML += '<option value="' + u.unit_id + '">' + u.unit_name + '</option>';
+  });
+  sel.value = val;
+}
+
+function onBookChange(tab) {
+  selectedBooks[tab] = document.getElementById(tab + '-book').value;
+  selectedUnits[tab] = '__all__';
+  populateUnitSelect(tab);
+  refreshTab(tab);
+}
+
+function onUnitChange(tab) {
+  selectedUnits[tab] = document.getElementById(tab + '-unit').value;
+  refreshTab(tab);
+}
+
+function refreshTab(tab) {
+  if (tab === 'card') renderCards();
+  else if (tab === 'picker') resetPickerDisplay();
+  else if (tab === 'print') { renderPrintWordList(); updatePrintPreview(); }
+}
+
+// ========== Tab Switching ==========
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    currentTab = tab.dataset.tab;
+    if (tab.dataset.tab === 'admin') renderAdmin();
+    if (tab.dataset.tab === 'print') updatePrintPreview();
+  });
+});
+
+// ========== Tab 1: Card Browse ==========
+function toggleChinese() {
+  showChinese = !showChinese;
+  document.getElementById('toggle-chinese').classList.toggle('on', showChinese);
+  document.getElementById('tab-cards').classList.toggle('show-chinese', showChinese);
+  document.getElementById('lb-chinese').style.display = showChinese ? 'block' : 'none';
+}
+
+function renderCards() {
+  const grid = document.getElementById('card-grid');
+  const words = getFilteredWords('card');
+  if (words.length === 0) {
+    grid.innerHTML = '<div style="color:#999;padding:60px;text-align:center;font-size:16px;">请选择书和单元</div>';
+    return;
+  }
+  grid.innerHTML = '<div class="card-grid">' + words.map(w =>
+    '<div class="card" onclick="openLightbox(\'' + esc(w.word) + '\')">' +
+    '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '" alt="' + esc(w.word) + '">' +
+    '<div class="card-info"><div class="card-word">' + esc(w.word) + '</div><div class="card-chinese">' + esc(w.chinese) + '</div></div>' +
+    '</div>'
+  ).join('') + '</div>';
+  loadLazyImages(grid);
+}
+
+function openLightbox(word) {
+  const w = APP_DATA.words.find(x => x.word === word);
+  if (!w) return;
+  const img = document.getElementById('lb-img');
+  // Try to reuse the card's image src (already loaded)
+  const cardImg = document.querySelector('.card img[data-src-word="' + esc(word) + '"]');
+  if (cardImg && cardImg.src && !cardImg.src.endsWith('.png')) {
+    img.src = cardImg.src;
+  } else {
+    loadImage(img, w.word, w.image_prompt, w.unit_id);
+  }
+  document.getElementById('lb-word').textContent = w.word;
+  document.getElementById('lb-chinese').textContent = w.chinese;
+  document.getElementById('lb-chinese').style.display = showChinese ? 'block' : 'none';
+  document.getElementById('lightbox').classList.add('show');
+}
+
+function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); }
+
+// ========== Tab 2: Random Picker ==========
+function setPickerMode(mode) {
+  pickerMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  if (!pickerRolling) resetPickerDisplay();
+}
+
+function getPickerWords() { return getFilteredWords('picker'); }
+
+function resetPickerDisplay() {
+  const display = document.getElementById('picker-display');
+  const btn = document.getElementById('picker-btn');
+  display.classList.remove('rolling');
+  const words = getPickerWords();
+  if (words.length === 0) {
+    display.innerHTML = '<span class="picker-placeholder">选择书和单元后开始</span>';
+    btn.disabled = true;
+  } else {
+    display.innerHTML = '<span class="picker-placeholder">点击「开始抽取」</span>';
+    btn.disabled = false;
+  }
+}
+
+function togglePicker() { pickerRolling ? stopPicker() : startPicker(); }
+
+function startPicker() {
+  const words = getPickerWords();
+  if (words.length === 0) return;
+  pickerRolling = true;
+  const btn = document.getElementById('picker-btn');
+  btn.textContent = '停止'; btn.classList.remove('start'); btn.classList.add('stop');
+  const display = document.getElementById('picker-display');
+  display.classList.add('rolling');
+  pickerInterval = setInterval(() => {
+    const w = words[Math.floor(Math.random() * words.length)];
+    if (pickerMode === 'image') {
+      display.innerHTML = '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">';
+      loadLazyImages(display);
+    } else {
+      display.innerHTML = '<span>' + esc(w.word) + '</span>';
+    }
+  }, 60);
+}
+
+function stopPicker() {
+  pickerRolling = false;
+  clearInterval(pickerInterval);
+  const btn = document.getElementById('picker-btn');
+  btn.textContent = '开始抽取'; btn.classList.remove('stop'); btn.classList.add('start');
+  const display = document.getElementById('picker-display');
+  display.classList.remove('rolling');
+  const words = getPickerWords();
+  const w = words[Math.floor(Math.random() * words.length)];
+  if (w) {
+    if (pickerMode === 'image') {
+      display.innerHTML = '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">';
+      loadLazyImages(display);
+    } else {
+      display.innerHTML = '<span>' + esc(w.word) + '</span>';
+    }
+  }
+}
+
+// ========== Tab 3: A4 Print ==========
+function togglePrintChinese() {
+  showPrintChinese = !showPrintChinese;
+  document.getElementById('toggle-print-chinese').classList.toggle('on', showPrintChinese);
+  updatePrintPreview();
+}
+
+function renderPrintWordList() {
+  const c = document.getElementById('print-word-list');
+  const words = getFilteredWords('print');
+  c.innerHTML = words.map(w => {
+    const checked = selectedPrintWords.has(w.word) ? 'checked' : '';
+    return '<label class="print-word-item"><input type="checkbox" ' + checked + ' onchange="togglePrintWord(\'' + esc(w.word) + '\')">' +
+      '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">' +
+      '<span>' + esc(w.word) + '</span></label>';
+  }).join('');
+  loadLazyImages(c);
+  updateSelectedCount();
+}
+
+function togglePrintWord(word) {
+  if (selectedPrintWords.has(word)) selectedPrintWords.delete(word);
+  else selectedPrintWords.add(word);
+  updateSelectedCount();
+  updatePrintPreview();
+}
+
+function toggleSelectAll() {
+  const words = getFilteredWords('print');
+  const allSelected = words.every(w => selectedPrintWords.has(w.word));
+  if (allSelected) words.forEach(w => selectedPrintWords.delete(w.word));
+  else words.forEach(w => selectedPrintWords.add(w.word));
+  renderPrintWordList();
+}
+
+function updateSelectedCount() {
+  document.getElementById('selected-count').textContent = '已选 ' + selectedPrintWords.size + ' 个';
+}
+
+function updatePrintPreview() {
+  const previewWrap = document.getElementById('print-preview');
+  const printArea = document.getElementById('print-area');
+  const allWords = APP_DATA.words;
+  const selectedWords = allWords.filter(w => selectedPrintWords.has(w.word));
+
+  if (selectedWords.length === 0) {
+    previewWrap.innerHTML = '<div class="print-empty">在左侧勾选单词后预览</div>';
+    printArea.innerHTML = '';
+    return;
+  }
+
+  const PER_PAGE = 12;
+  const pages = [];
+  for (let i = 0; i < selectedWords.length; i += PER_PAGE) {
+    pages.push(selectedWords.slice(i, i + PER_PAGE));
+  }
+
+  const hideClass = showPrintChinese ? '' : ' hide-chinese';
+  let previewHtml = '';
+  let printHtml = '';
+
+  pages.forEach((pageWords, idx) => {
+    const cellsHtml = pageWords.map(w =>
+      '<div class="print-cell">' +
+      '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">' +
+      '<div class="print-cell-text"><div class="pw">' + esc(w.word) + '</div><div class="pc">' + esc(w.chinese) + '</div></div>' +
+      '</div>'
+    ).join('');
+
+    const pageContent = '<div class="print-grid' + hideClass + '">' + cellsHtml + '</div>';
+    previewHtml += '<div class="print-page-label">第 ' + (idx + 1) + ' 页 / 共 ' + pages.length + ' 页</div>';
+    previewHtml += '<div class="print-page' + hideClass + '">' + pageContent + '</div>';
+    printHtml += '<div class="print-page' + hideClass + '">' + pageContent + '</div>';
+  });
+
+  previewWrap.innerHTML = previewHtml;
+  printArea.innerHTML = printHtml;
+  loadLazyImages(previewWrap);
+}
+
+// ========== Tab 4: Admin ==========
+function renderAdmin() {
+  renderBookTable();
+  renderUnitTable();
+  renderWordTable();
+  // Populate admin dropdowns
+  const bookSel = document.getElementById('new-unit-book');
+  bookSel.innerHTML = APP_DATA.books.map(b => '<option value="' + b.book_id + '">' + esc(b.book_name) + '</option>').join('');
+  const unitSel = document.getElementById('new-word-unit');
+  unitSel.innerHTML = APP_DATA.units.map(u => '<option value="' + u.unit_id + '">' + esc(getUnitBook(u.unit_id)) + ' - ' + esc(u.unit_name) + '</option>').join('');
+}
+
+function showMsg(id, ok, text) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'admin-msg ' + (ok ? 'ok' : 'err');
+  setTimeout(() => { el.className = 'admin-msg'; }, 3000);
+}
+
+async function addBook() {
+  const name = document.getElementById('new-book-name').value.trim();
+  if (!name) return;
+  const id = 'book_' + Date.now();
+  APP_DATA.books.push({ book_id: id, book_name: name });
+  try {
+    await saveData(APP_DATA);
+    document.getElementById('new-book-name').value = '';
+    renderBookTable(); renderAdmin();
+    populateBookSelect('card'); populateBookSelect('picker'); populateBookSelect('print');
+    showMsg('book-msg', true, '添加成功');
+  } catch (e) { showMsg('book-msg', false, '保存失败: ' + e.message); APP_DATA.books.pop(); }
+}
+
+async function deleteBook(id) {
+  const hasUnits = APP_DATA.units.some(u => u.book_id === id);
+  if (hasUnits && !confirm('该书下还有单元，删除后相关单词将失去归属。确定删除？')) return;
+  APP_DATA.books = APP_DATA.books.filter(b => b.book_id !== id);
+  APP_DATA.units = APP_DATA.units.filter(u => u.book_id !== id);
+  APP_DATA.words = APP_DATA.words.filter(w => APP_DATA.units.some(u => u.unit_id === w.unit_id));
+  try {
+    await saveData(APP_DATA);
+    renderAdmin();
+    populateBookSelect('card'); populateBookSelect('picker'); populateBookSelect('print');
+    renderCards(); renderPrintWordList();
+    showMsg('book-msg', true, '删除成功');
+  } catch (e) { showMsg('book-msg', false, '保存失败'); }
+}
+
+async function editBook(id) {
+  const book = APP_DATA.books.find(b => b.book_id === id);
+  if (!book) return;
+  editingBookId = id;
+  document.getElementById('new-book-name').value = book.book_name;
+  document.getElementById('book-add-btn').style.display = 'none';
+  document.getElementById('book-update-btn').style.display = '';
+  document.getElementById('book-cancel-btn').style.display = '';
+}
+
+async function updateBook() {
+  const name = document.getElementById('new-book-name').value.trim();
+  if (!name) return;
+  const book = APP_DATA.books.find(b => b.book_id === editingBookId);
+  if (book) book.book_name = name;
+  try {
+    await saveData(APP_DATA);
+    cancelEditBook();
+    renderBookTable(); renderAdmin();
+    populateBookSelect('card'); populateBookSelect('picker'); populateBookSelect('print');
+    showMsg('book-msg', true, '更新成功');
+  } catch (e) { showMsg('book-msg', false, '保存失败: ' + e.message); }
+}
+
+function cancelEditBook() {
+  editingBookId = null;
+  document.getElementById('new-book-name').value = '';
+  document.getElementById('book-add-btn').style.display = '';
+  document.getElementById('book-update-btn').style.display = 'none';
+  document.getElementById('book-cancel-btn').style.display = 'none';
+}
+
+function renderBookTable() {
+  const tbody = document.querySelector('#admin-book-table tbody');
+  const kw = searchBook.toLowerCase();
+  const filtered = kw ? APP_DATA.books.filter(b => b.book_name.toLowerCase().includes(kw)) : APP_DATA.books;
+  tbody.innerHTML = filtered.map(b =>
+    '<tr><td>' + esc(b.book_id) + '</td><td>' + esc(b.book_name) + '</td><td>' +
+    '<button class="admin-btn small" onclick="editBook(\'' + b.book_id + '\')">编辑</button> ' +
+    '<button class="admin-btn danger small" onclick="deleteBook(\'' + b.book_id + '\')">删除</button></td></tr>'
+  ).join('');
+}
+
+async function addUnit() {
+  const bookId = document.getElementById('new-unit-book').value;
+  const name = document.getElementById('new-unit-name').value.trim();
+  const style = document.getElementById('new-unit-style').value;
+  if (!bookId || !name) return;
+  const id = 'unit_' + Date.now();
+  APP_DATA.units.push({ unit_id: id, unit_name: name, book_id: bookId, image_style: style });
+  try {
+    await saveData(APP_DATA);
+    document.getElementById('new-unit-name').value = '';
+    renderUnitTable(); renderAdmin();
+    populateUnitSelect('card'); populateUnitSelect('picker'); populateUnitSelect('print');
+    showMsg('unit-msg', true, '添加成功');
+  } catch (e) { showMsg('unit-msg', false, '保存失败'); APP_DATA.units.pop(); }
+}
+
+async function deleteUnit(id) {
+  const hasWords = APP_DATA.words.some(w => w.unit_id === id);
+  if (hasWords && !confirm('该单元下还有单词，确定一起删除？')) return;
+  APP_DATA.units = APP_DATA.units.filter(u => u.unit_id !== id);
+  APP_DATA.words = APP_DATA.words.filter(w => w.unit_id !== id);
+  try {
+    await saveData(APP_DATA);
+    renderAdmin();
+    populateUnitSelect('card'); populateUnitSelect('picker'); populateUnitSelect('print');
+    renderCards(); renderPrintWordList();
+    showMsg('unit-msg', true, '删除成功');
+  } catch (e) { showMsg('unit-msg', false, '保存失败'); }
+}
+
+async function editUnit(id) {
+  const unit = APP_DATA.units.find(u => u.unit_id === id);
+  if (!unit) return;
+  editingUnitId = id;
+  document.getElementById('new-unit-book').value = unit.book_id;
+  document.getElementById('new-unit-name').value = unit.unit_name;
+  document.getElementById('new-unit-style').value = unit.image_style;
+  document.getElementById('unit-add-btn').style.display = 'none';
+  document.getElementById('unit-update-btn').style.display = '';
+  document.getElementById('unit-cancel-btn').style.display = '';
+}
+
+async function updateUnit() {
+  const bookId = document.getElementById('new-unit-book').value;
+  const name = document.getElementById('new-unit-name').value.trim();
+  const style = document.getElementById('new-unit-style').value;
+  if (!bookId || !name) return;
+  const unit = APP_DATA.units.find(u => u.unit_id === editingUnitId);
+  if (unit) { unit.unit_name = name; unit.book_id = bookId; unit.image_style = style; }
+  try {
+    await saveData(APP_DATA);
+    cancelEditUnit();
+    renderUnitTable(); renderAdmin();
+    populateUnitSelect('card'); populateUnitSelect('picker'); populateUnitSelect('print');
+    showMsg('unit-msg', true, '更新成功');
+  } catch (e) { showMsg('unit-msg', false, '保存失败: ' + e.message); }
+}
+
+function cancelEditUnit() {
+  editingUnitId = null;
+  document.getElementById('new-unit-book').value = '';
+  document.getElementById('new-unit-name').value = '';
+  document.getElementById('new-unit-style').value = 'photo';
+  document.getElementById('unit-add-btn').style.display = '';
+  document.getElementById('unit-update-btn').style.display = 'none';
+  document.getElementById('unit-cancel-btn').style.display = 'none';
+}
+
+function renderUnitTable() {
+  const tbody = document.querySelector('#admin-unit-table tbody');
+  const kw = searchUnit.toLowerCase();
+  const filtered = kw ? APP_DATA.units.filter(u => u.unit_name.toLowerCase().includes(kw) || getUnitBook(u.unit_id).toLowerCase().includes(kw)) : APP_DATA.units;
+  tbody.innerHTML = filtered.map(u =>
+    '<tr><td>' + esc(u.unit_id) + '</td><td>' + esc(u.unit_name) + '</td><td>' + esc(getUnitBook(u.unit_id)) + '</td><td>' + esc(u.image_style) + '</td><td>' +
+    '<button class="admin-btn small" onclick="editUnit(\'' + u.unit_id + '\')">编辑</button> ' +
+    '<button class="admin-btn danger small" onclick="deleteUnit(\'' + u.unit_id + '\')">删除</button></td></tr>'
+  ).join('');
+}
+
+// ========== Word Edit functions ==========
+async function editWord(word, unitId) {
+  const w = APP_DATA.words.find(x => x.word === word && x.unit_id === unitId);
+  if (!w) return;
+  editingWord = { word: w.word, unit_id: w.unit_id };
+  document.getElementById('new-word-unit').value = w.unit_id;
+  document.getElementById('new-word-en').value = w.word;
+  document.getElementById('new-word-cn').value = w.chinese;
+  document.getElementById('new-word-prompt').value = w.image_prompt || '';
+  document.getElementById('word-add-btn').style.display = 'none';
+  document.getElementById('word-update-btn').style.display = '';
+  document.getElementById('word-cancel-btn').style.display = '';
+}
+
+async function updateWord() {
+  if (!editingWord) return;
+  const unitId = document.getElementById('new-word-unit').value;
+  const en = document.getElementById('new-word-en').value.trim().toLowerCase();
+  const cn = document.getElementById('new-word-cn').value.trim();
+  const prompt = document.getElementById('new-word-prompt').value.trim();
+  if (!unitId || !en || !cn) return;
+  // Check duplicate (exclude self)
+  const duplicate = APP_DATA.words.find(w => w.word === en && w.unit_id === unitId &&
+    !(w.word === editingWord.word && w.unit_id === editingWord.unit_id));
+  if (duplicate) { showMsg('word-msg', false, '该单元已存在这个单词'); return; }
+  const w = APP_DATA.words.find(x => x.word === editingWord.word && x.unit_id === editingWord.unit_id);
+  if (w) { w.word = en; w.chinese = cn; w.unit_id = unitId; w.image_prompt = prompt; }
+  try {
+    await saveData(APP_DATA);
+    cancelEditWord();
+    renderWordTable(); renderCards(); renderPrintWordList();
+    showMsg('word-msg', true, '更新成功');
+  } catch (e) { showMsg('word-msg', false, '保存失败: ' + e.message); }
+}
+
+function cancelEditWord() {
+  editingWord = null;
+  document.getElementById('new-word-en').value = '';
+  document.getElementById('new-word-cn').value = '';
+  document.getElementById('new-word-prompt').value = '';
+  document.getElementById('word-add-btn').style.display = '';
+  document.getElementById('word-update-btn').style.display = 'none';
+  document.getElementById('word-cancel-btn').style.display = 'none';
+}
+
+// ========== Word Add ==========
+async function addWord() {
+  const unitId = document.getElementById('new-word-unit').value;
+  const en = document.getElementById('new-word-en').value.trim().toLowerCase();
+  const cn = document.getElementById('new-word-cn').value.trim();
+  const prompt = document.getElementById('new-word-prompt').value.trim();
+  if (!unitId || !en || !cn) return;
+  if (APP_DATA.words.some(w => w.word === en && w.unit_id === unitId)) {
+    showMsg('word-msg', false, '该单元已存在这个单词'); return;
+  }
+  APP_DATA.words.push({ word: en, chinese: cn, unit_id: unitId, image_prompt: prompt });
+  try {
+    await saveData(APP_DATA);
+    document.getElementById('new-word-en').value = '';
+    document.getElementById('new-word-cn').value = '';
+    document.getElementById('new-word-prompt').value = '';
+    renderWordTable(); renderPrintWordList(); renderCards();
+    showMsg('word-msg', true, '添加成功');
+  } catch (e) { showMsg('word-msg', false, '保存失败'); APP_DATA.words.pop(); }
+}
+
+async function deleteWord(word, unitId) {
+  APP_DATA.words = APP_DATA.words.filter(w => !(w.word === word && w.unit_id === unitId));
+  try {
+    await saveData(APP_DATA);
+    renderWordTable(); renderPrintWordList(); renderCards();
+    showMsg('word-msg', true, '删除成功');
+  } catch (e) { showMsg('word-msg', false, '保存失败'); }
+}
+
+function renderWordTable() {
+  const tbody = document.querySelector('#admin-word-table tbody');
+  const kw = searchWord.toLowerCase();
+  const filtered = kw ? APP_DATA.words.filter(w => w.word.toLowerCase().includes(kw) || w.chinese.includes(kw)) : APP_DATA.words;
+  tbody.innerHTML = filtered.map(w =>
+    '<tr><td><img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '"></td><td>' + esc(w.word) + '</td><td>' + esc(w.chinese) + '</td><td>' + esc(getUnitName(w.unit_id)) + '</td><td>' +
+    '<button class="admin-btn small" onclick="editWord(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">编辑</button> ' +
+    '<button class="admin-btn danger small" onclick="deleteWord(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">删除</button></td></tr>'
+  ).join('');
+  loadLazyImages(tbody);
+}
+
+// ========== Batch Import Words ==========
+function downloadWordTemplate() {
+  const BOM = '\uFEFF';
+  const header = '书名,单元名,单词,中文,图片风格';
+  const example = 'Power Up 1,Colors,red,红色,photo';
+  const csv = BOM + header + '\n' + example + '\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '单词批量导入模板.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function handleWordFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) { parseWordCSV(e.target.result); };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+function parseWordCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) { showMsg('word-msg', false, '文件为空或格式不正确'); return; }
+  const header = parseCSVLine(lines[0]);
+  const colMap = {};
+  header.forEach((h, i) => { colMap[h.trim()] = i; });
+  const idxBook = colMap['书名'];
+  const idxUnit = colMap['单元名'];
+  const idxWord = colMap['单词'];
+  const idxChinese = colMap['中文'];
+  const idxStyle = colMap['图片风格'];
+  if (idxBook === undefined || idxUnit === undefined || idxWord === undefined || idxChinese === undefined) {
+    showMsg('word-msg', false, '模板格式不正确，请重新下载模板');
+    return;
+  }
+  const newWords = [];
+  const newUnits = [];
+  const errors = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 4) continue;
+    const bookName = (cols[idxBook] || '').trim();
+    const unitName = (cols[idxUnit] || '').trim();
+    const word = (cols[idxWord] || '').trim().toLowerCase();
+    const chinese = (cols[idxChinese] || '').trim();
+    const style = idxStyle !== undefined ? (cols[idxStyle] || 'photo').trim() : 'photo';
+    if (!bookName || !unitName || !word || !chinese) {
+      errors.push('第' + (i+1) + '行：数据不完整');
+      continue;
+    }
+    const book = APP_DATA.books.find(b => b.book_name === bookName);
+    if (!book) {
+      errors.push('第' + (i+1) + '行：找不到书「' + bookName + '」');
+      continue;
+    }
+    let unit = APP_DATA.units.find(u => u.book_id === book.book_id && u.unit_name === unitName);
+    if (!unit) {
+      const newUnitId = 'unit_' + Date.now() + '_' + i;
+      unit = { unit_id: newUnitId, unit_name: unitName, book_id: book.book_id, image_style: style || 'photo' };
+      newUnits.push(unit);
+      APP_DATA.units.push(unit);
+    }
+    const exists = APP_DATA.words.some(w => w.word === word && w.unit_id === unit.unit_id);
+    if (exists) {
+      errors.push('第' + (i+1) + '行：单词「' + word + '」在单元「' + unitName + '」中已存在');
+      continue;
+    }
+    newWords.push({ word: word, chinese: chinese, unit_id: unit.unit_id, image_prompt: '' });
+  }
+  if (errors.length > 0 && newWords.length === 0) {
+    // Rollback newly added units
+    newUnits.forEach(u => {
+      APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id);
+    });
+    showMsg('word-msg', false, '导入失败：\n' + errors.join('\n'));
+    return;
+  }
+  let msg = '即将导入 ' + newWords.length + ' 个单词';
+  if (newUnits.length > 0) msg += '\n自动创建 ' + newUnits.length + ' 个单元';
+  if (errors.length > 0) msg += '\n跳过 ' + errors.length + ' 行（原因：' + errors.join('；') + '）';
+  if (!confirm(msg + '\n\n确认导入？')) {
+    newUnits.forEach(u => {
+      APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id);
+    });
+    return;
+  }
+  APP_DATA.words.push(...newWords);
+  saveData(APP_DATA).then(() => {
+    renderAdmin();
+    renderWordTable(); renderCards(); renderPrintWordList();
+    showMsg('word-msg', true, '成功导入 ' + newWords.length + ' 个单词' + (errors.length > 0 ? '，跳过 ' + errors.length + ' 行' : ''));
+  }).catch(e => {
+    showMsg('word-msg', false, '保存失败: ' + e.message);
+  });
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuote) {
+      if (c === '"') {
+        if (i + 1 < line.length && line[i+1] === '"') { current += '"'; i++; }
+        else { inQuote = false; }
+      } else { current += c; }
+    } else {
+      if (c === '"') { inQuote = true; }
+      else if (c === ',') { result.push(current); current = ''; }
+      else { current += c; }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+// ========== Utility ==========
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function setStatus(t) { document.getElementById('status-text').textContent = t; }
+
+// ========== Boot ==========
+async function loadApp() {
+  const loading = document.getElementById('loading');
+  loading.classList.remove('hidden');
+  try {
+    APP_DATA = await fetchData();
+    setStatus('Loaded ' + APP_DATA.words.length + ' words, ' + APP_DATA.units.length + ' units');
+    // Auto-select first book
+    if (APP_DATA.books.length > 0) {
+      const first = APP_DATA.books[0].book_id;
+      selectedBooks.card = first; selectedBooks.picker = first; selectedBooks.print = first;
+      populateBookSelect('card'); populateBookSelect('picker'); populateBookSelect('print');
+      populateUnitSelect('card'); populateUnitSelect('picker'); populateUnitSelect('print');
+    }
+    renderCards();
+    renderPrintWordList();
+    updatePrintPreview();
+    resetPickerDisplay();
+    document.getElementById('data-sha').textContent = dataSha.substring(0, 7);
+  } catch (e) {
+    setStatus('Error: ' + e.message);
+  } finally {
+    loading.classList.add('hidden');
+  }
+}
+
+async function refreshData() {
+  try {
+    await loadApp();
+  } catch (e) {
+    alert('刷新失败: ' + e.message);
+  }
+}
+
+// Init
+(function() {
+  const token = getToken();
+  if (token) {
+    document.getElementById('token-overlay').classList.add('hidden');
+    loadApp();
+  } else {
+    document.getElementById('loading').classList.add('hidden');
+  }
+})();
+</script>
+</body>
+</html>
