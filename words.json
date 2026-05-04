@@ -1,32 +1,150 @@
 {
   "books": [
-    {"book_id": "book_1", "book_name": "Power Up 1"}
+    {
+      "book_id": "book_1",
+      "book_name": "Power Up 1"
+    }
   ],
   "units": [
-    {"unit_id": "unit_1", "unit_name": "Colors", "book_id": "book_1", "image_style": "cartoon"},
-    {"unit_id": "unit_2", "unit_name": "Numbers 1-10", "book_id": "book_1", "image_style": "cartoon"}
+    {
+      "unit_id": "unit_1",
+      "unit_name": "Colors",
+      "book_id": "book_1",
+      "image_style": "cartoon"
+    },
+    {
+      "unit_id": "unit_2",
+      "unit_name": "Numbers 1-10",
+      "book_id": "book_1",
+      "image_style": "cartoon"
+    }
   ],
   "words": [
-    {"word": "red", "chinese": "红色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "blue", "chinese": "蓝色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "yellow", "chinese": "黄色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "green", "chinese": "绿色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "orange", "chinese": "橙色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "purple", "chinese": "紫色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "pink", "chinese": "粉色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "grey", "chinese": "灰色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "black", "chinese": "黑色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "white", "chinese": "白色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "brown", "chinese": "棕色", "unit_id": "unit_1", "image_prompt": ""},
-    {"word": "one", "chinese": "1", "unit_id": "unit_2", "image_prompt": "number 1,white clean backgroung"},
-    {"word": "two", "chinese": "2", "unit_id": "unit_2", "image_prompt": "number 2,white clean backgroung"},
-    {"word": "three", "chinese": "3", "unit_id": "unit_2", "image_prompt": "number 3,white clean backgroung"},
-    {"word": "four", "chinese": "4", "unit_id": "unit_2", "image_prompt": "number 4,white clean backgroung"},
-    {"word": "five", "chinese": "5", "unit_id": "unit_2", "image_prompt": "number 5,white clean backgroung"},
-    {"word": "six", "chinese": "6", "unit_id": "unit_2", "image_prompt": "number 6,white clean backgroung"},
-    {"word": "seven", "chinese": "7", "unit_id": "unit_2", "image_prompt": "number 7,white clean backgroung"},
-    {"word": "eight", "chinese": "8", "unit_id": "unit_2", "image_prompt": "number 8,white clean backgroung"},
-    {"word": "nine", "chinese": "9", "unit_id": "unit_2", "image_prompt": "number 9,white clean backgroung"},
-    {"word": "ten", "chinese": "10", "unit_id": "unit_2", "image_prompt": "number 10,white clean backgroung"}
+    {
+      "word": "red",
+      "chinese": "红色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "blue",
+      "chinese": "蓝色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "yellow",
+      "chinese": "黄色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "green",
+      "chinese": "绿色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "orange",
+      "chinese": "橙色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "purple",
+      "chinese": "紫色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "pink",
+      "chinese": "粉色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "grey",
+      "chinese": "灰色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "black",
+      "chinese": "黑色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "white",
+      "chinese": "白色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "brown",
+      "chinese": "棕色",
+      "unit_id": "unit_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "one",
+      "chinese": "1",
+      "unit_id": "unit_2",
+      "image_prompt": "number 1,white clean backgroung"
+    },
+    {
+      "word": "two",
+      "chinese": "2",
+      "unit_id": "unit_2",
+      "image_prompt": "number 2,white clean backgroung"
+    },
+    {
+      "word": "three",
+      "chinese": "3",
+      "unit_id": "unit_2",
+      "image_prompt": "number 3,white clean backgroung"
+    },
+    {
+      "word": "four",
+      "chinese": "4",
+      "unit_id": "unit_2",
+      "image_prompt": "number 4,white clean backgroung"
+    },
+    {
+      "word": "five",
+      "chinese": "5",
+      "unit_id": "unit_2",
+      "image_prompt": "number 5,white clean backgroung"
+    },
+    {
+      "word": "six",
+      "chinese": "6",
+      "unit_id": "unit_2",
+      "image_prompt": "number 6,white clean backgroung"
+    },
+    {
+      "word": "seven",
+      "chinese": "7",
+      "unit_id": "unit_2",
+      "image_prompt": "number 7,white clean backgroung"
+    },
+    {
+      "word": "eight",
+      "chinese": "8",
+      "unit_id": "unit_2",
+      "image_prompt": "number 8,white clean backgroung"
+    },
+    {
+      "word": "nine",
+      "chinese": "9",
+      "unit_id": "unit_2",
+      "image_prompt": "number 9,white clean backgroung"
+    },
+    {
+      "word": "ten",
+      "chinese": "10",
+      "unit_id": "unit_2",
+      "image_prompt": "number 10,white clean backgroung"
+    }
   ]
 }
