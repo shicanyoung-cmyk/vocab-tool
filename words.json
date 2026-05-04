@@ -155,6 +155,12 @@
       "chinese": "10",
       "unit_id": "unit_2",
       "image_prompt": "number 10,white clean backgroung"
+    },
+    {
+      "word": "snake",
+      "chinese": "蛇",
+      "unit_id": "unit_1777869747793",
+      "image_prompt": ""
     }
   ]
 }
