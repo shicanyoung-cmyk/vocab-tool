@@ -53,7 +53,9 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 .card { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
 .card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
-.card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #eee; }
+.card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #e8edf3; }
+.card img[src^="blob:"] { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .card-info { padding: 8px; text-align: center; }
 .card-word { font-size: 16px; font-weight: 600; }
 .card-chinese { font-size: 12px; color: #999; margin-top: 2px; display: none; }
@@ -132,6 +134,8 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
 .admin-msg { padding: 8px 14px; border-radius: 6px; font-size: 13px; margin-top: 8px; display: none; }
 .admin-msg.ok { display: block; background: #d4edda; color: #155724; }
 .admin-msg.err { display: block; background: #f8d7da; color: #721c24; }
+.admin-search { width: 100%; padding: 8px 10px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 13px; margin-bottom: 12px; outline: none; }
+.admin-search:focus { border-color: #4472C4; }
 
 /* ========== Status Bar ========== */
 .status-bar { background: #fff; border-top: 1px solid #e0e0e0; padding: 6px 24px; font-size: 12px; color: #999; display: flex; justify-content: space-between; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; }
@@ -258,8 +262,11 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
       <h3>📚 书管理</h3>
       <div class="admin-form" id="admin-book-form">
         <label>书名<br><input id="new-book-name" placeholder="e.g. Power Up 1" style="width:200px"></label>
-        <button class="admin-btn" onclick="addBook()">添加</button>
+        <button class="admin-btn" id="book-add-btn" onclick="addBook()">添加</button>
+        <button class="admin-btn" id="book-update-btn" onclick="updateBook()" style="display:none">更新</button>
+        <button class="admin-btn" id="book-cancel-btn" onclick="cancelEditBook()" style="display:none">取消</button>
       </div>
+      <input class="admin-search" id="book-search" placeholder="搜索书名..." oninput="searchBook=this.value;renderBookTable()">
       <table class="admin-table" id="admin-book-table"><thead><tr><th>ID</th><th>书名</th><th>操作</th></tr></thead><tbody></tbody></table>
       <div class="admin-msg" id="book-msg"></div>
     </div>
@@ -270,8 +277,11 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
         <label>所属书<br><select id="new-unit-book" style="width:160px"></select></label>
         <label>单元名<br><input id="new-unit-name" placeholder="e.g. Colors" style="width:160px"></label>
         <label>图片风格<br><select id="new-unit-style"><option value="photo">实物照片</option><option value="cartoon">卡通插画</option></select></label>
-        <button class="admin-btn" onclick="addUnit()">添加</button>
+        <button class="admin-btn" id="unit-add-btn" onclick="addUnit()">添加</button>
+        <button class="admin-btn" id="unit-update-btn" onclick="updateUnit()" style="display:none">更新</button>
+        <button class="admin-btn" id="unit-cancel-btn" onclick="cancelEditUnit()" style="display:none">取消</button>
       </div>
+      <input class="admin-search" id="unit-search" placeholder="搜索单元名..." oninput="searchUnit=this.value;renderUnitTable()">
       <table class="admin-table" id="admin-unit-table"><thead><tr><th>ID</th><th>单元名</th><th>所属书</th><th>风格</th><th>操作</th></tr></thead><tbody></tbody></table>
       <div class="admin-msg" id="unit-msg"></div>
     </div>
@@ -283,8 +293,14 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
         <label>单词<br><input id="new-word-en" placeholder="e.g. apple" style="width:120px"></label>
         <label>中文<br><input id="new-word-cn" placeholder="e.g. 苹果" style="width:100px"></label>
         <label>图片描述(可选)<br><input id="new-word-prompt" placeholder="留空自动生成" style="width:180px"></label>
-        <button class="admin-btn" onclick="addWord()">添加</button>
+        <button class="admin-btn" id="word-add-btn" onclick="addWord()">添加</button>
+        <button class="admin-btn" id="word-update-btn" onclick="updateWord()" style="display:none">更新</button>
+        <button class="admin-btn" id="word-cancel-btn" onclick="cancelEditWord()" style="display:none">取消</button>
+        <button class="admin-btn" style="background:#e67e22;margin-left:8px;" onclick="downloadWordTemplate()">📥 下载模板</button>
+        <button class="admin-btn" style="background:#27ae60;" onclick="document.getElementById('word-file-input').click()">📤 批量导入</button>
+        <input type="file" id="word-file-input" accept=".csv,.tsv,.txt" style="display:none" onchange="handleWordFile(event)">
       </div>
+      <input class="admin-search" id="word-search" placeholder="搜索单词或中文..." oninput="searchWord=this.value;renderWordTable()">
       <table class="admin-table" id="admin-word-table"><thead><tr><th>预览</th><th>单词</th><th>中文</th><th>单元</th><th>操作</th></tr></thead><tbody></tbody></table>
       <div class="admin-msg" id="word-msg"></div>
     </div>
@@ -384,6 +400,77 @@ let pickerMode = 'image';
 let pickerRolling = false;
 let pickerInterval = null;
 let saving = false;
+let editingBookId = null;
+let editingUnitId = null;
+let editingWord = null;
+let searchBook = '';
+let searchUnit = '';
+let searchWord = '';
+
+// ========== Image Loading ==========
+// Base URL for local images on GitHub Pages
+const IMG_BASE = 'images/';
+
+// Try local image first, fallback to Pollinations API for new words
+async function loadImage(imgEl, word, imagePrompt, unitId) {
+  imgEl.dataset.word = word;
+  imgEl.alt = word;
+
+  // 1. Try local image on GitHub Pages
+  const localUrl = IMG_BASE + unitId + '/' + word.toLowerCase() + '.png';
+  const localOk = await new Promise(resolve => {
+    const testImg = new Image();
+    testImg.onload = () => resolve(true);
+    testImg.onerror = () => resolve(false);
+    testImg.src = localUrl;
+  });
+
+  if (localOk) {
+    imgEl.src = localUrl;
+    return;
+  }
+
+  // 2. Fallback: generate via Pollinations API (sequential to avoid 429)
+  imgEl.style.background = '#e8edf3';
+  imgQueue.push({ imgEl, word, imagePrompt, unitId });
+  processImgQueue();
+}
+
+// Sequential download queue for Pollinations fallback
+const imgQueue = [];
+let imgProcessing = false;
+
+async function processImgQueue() {
+  if (imgProcessing || imgQueue.length === 0) return;
+  imgProcessing = true;
+  while (imgQueue.length > 0) {
+    const item = imgQueue.shift();
+    if (!item.imgEl.isConnected) continue;
+    try {
+      const style = getUnitStyle(item.unitId);
+      const prompt = item.imagePrompt || generateDefaultPrompt(item.word, style);
+      const seed = md5Seed(item.word);
+      const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=512&height=512&model=flux&nologo=true&seed=' + seed;
+      setStatus('Generating image: ' + item.word);
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        if (item.imgEl.isConnected) item.imgEl.src = URL.createObjectURL(blob);
+      }
+    } catch (e) {
+      console.warn('Image generation failed:', item.word, e);
+    }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  imgProcessing = false;
+  setStatus('Ready');
+}
+
+function loadLazyImages(container) {
+  container.querySelectorAll('img[data-src-word]').forEach(img => {
+    loadImage(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
+  });
+}
 
 // ========== Image Helpers ==========
 function md5Seed(word) {
@@ -391,9 +478,9 @@ function md5Seed(word) {
 }
 
 function generateDefaultPrompt(word, style) {
-  if (COLORS.includes(word.toLowerCase())) return 'solid ' + word + ' color background, minimalist, clean, no text, no letters';
-  if (style === 'cartoon') return 'cute cartoon illustration of a person doing the action ' + word + ', simple clean style, white background, colorful, no text';
-  return 'a real photo of ' + word + ', clean white background, studio lighting, high quality product photography, no text, no watermark';
+  if (COLORS.includes(word.toLowerCase())) return word + ' color fill, clean';
+  if (style === 'cartoon') return 'cute cartoon ' + word + ', simple white background';
+  return word + ', white background, product photo';
 }
 
 function getUnitStyle(unitId) {
@@ -413,13 +500,6 @@ function getUnitName(unitId) {
   return u ? u.unit_name : '';
 }
 
-function getImgUrl(word, imagePrompt, unitId) {
-  const style = getUnitStyle(unitId);
-  const prompt = imagePrompt || generateDefaultPrompt(word, style);
-  const seed = md5Seed(word);
-  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=512&height=512&model=flux&nologo=true&seed=' + seed + '&safe=true';
-}
-
 // ========== GitHub API ==========
 function getToken() { return localStorage.getItem('gh_token') || ''; }
 function setToken(t) { localStorage.setItem('gh_token', t); }
@@ -434,7 +514,7 @@ async function fetchData() {
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const json = await resp.json();
   dataSha = json.sha;
-  const decoded = atob(json.content);
+  const decoded = new TextDecoder('utf-8').decode(Uint8Array.from(atob(json.content), c => c.charCodeAt(0)));
   return JSON.parse(decoded);
 }
 
@@ -449,7 +529,10 @@ async function saveData(data) {
     const json = await resp.json();
     dataSha = json.sha;
 
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+    const raw = JSON.stringify(data, null, 2);
+    const bytes = new TextEncoder().encode(raw);
+    const binary = Array.from(bytes, b => String.fromCharCode(b)).join('');
+    const content = btoa(binary);
     const putResp = await fetch(GH.apiBase + '/repos/' + GH.owner + '/' + GH.repo + '/contents/' + GH.dataPath, {
       method: 'PUT',
       headers: ghHeaders(),
@@ -578,16 +661,24 @@ function renderCards() {
   }
   grid.innerHTML = '<div class="card-grid">' + words.map(w =>
     '<div class="card" onclick="openLightbox(\'' + esc(w.word) + '\')">' +
-    '<img src="' + getImgUrl(w.word, w.image_prompt, w.unit_id) + '" alt="' + esc(w.word) + '" loading="lazy" onerror="this.style.background=\'#eee\'">' +
+    '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '" alt="' + esc(w.word) + '">' +
     '<div class="card-info"><div class="card-word">' + esc(w.word) + '</div><div class="card-chinese">' + esc(w.chinese) + '</div></div>' +
     '</div>'
   ).join('') + '</div>';
+  loadLazyImages(grid);
 }
 
 function openLightbox(word) {
   const w = APP_DATA.words.find(x => x.word === word);
   if (!w) return;
-  document.getElementById('lb-img').src = getImgUrl(w.word, w.image_prompt, w.unit_id);
+  const img = document.getElementById('lb-img');
+  // Try to reuse the card's image src (already loaded)
+  const cardImg = document.querySelector('.card img[data-src-word="' + esc(word) + '"]');
+  if (cardImg && cardImg.src && !cardImg.src.endsWith('.png')) {
+    img.src = cardImg.src;
+  } else {
+    loadImage(img, w.word, w.image_prompt, w.unit_id);
+  }
   document.getElementById('lb-word').textContent = w.word;
   document.getElementById('lb-chinese').textContent = w.chinese;
   document.getElementById('lb-chinese').style.display = showChinese ? 'block' : 'none';
@@ -631,8 +722,12 @@ function startPicker() {
   display.classList.add('rolling');
   pickerInterval = setInterval(() => {
     const w = words[Math.floor(Math.random() * words.length)];
-    if (pickerMode === 'image') display.innerHTML = '<img src="' + getImgUrl(w.word, w.image_prompt, w.unit_id) + '">';
-    else display.innerHTML = '<span>' + esc(w.word) + '</span>';
+    if (pickerMode === 'image') {
+      display.innerHTML = '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">';
+      loadLazyImages(display);
+    } else {
+      display.innerHTML = '<span>' + esc(w.word) + '</span>';
+    }
   }, 60);
 }
 
@@ -646,8 +741,12 @@ function stopPicker() {
   const words = getPickerWords();
   const w = words[Math.floor(Math.random() * words.length)];
   if (w) {
-    if (pickerMode === 'image') display.innerHTML = '<img src="' + getImgUrl(w.word, w.image_prompt, w.unit_id) + '">';
-    else display.innerHTML = '<span>' + esc(w.word) + '</span>';
+    if (pickerMode === 'image') {
+      display.innerHTML = '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">';
+      loadLazyImages(display);
+    } else {
+      display.innerHTML = '<span>' + esc(w.word) + '</span>';
+    }
   }
 }
 
@@ -664,9 +763,10 @@ function renderPrintWordList() {
   c.innerHTML = words.map(w => {
     const checked = selectedPrintWords.has(w.word) ? 'checked' : '';
     return '<label class="print-word-item"><input type="checkbox" ' + checked + ' onchange="togglePrintWord(\'' + esc(w.word) + '\')">' +
-      '<img src="' + getImgUrl(w.word, w.image_prompt, w.unit_id) + '" loading="lazy" onerror="this.style.display=\'none\'">' +
+      '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">' +
       '<span>' + esc(w.word) + '</span></label>';
   }).join('');
+  loadLazyImages(c);
   updateSelectedCount();
 }
 
@@ -714,7 +814,7 @@ function updatePrintPreview() {
   pages.forEach((pageWords, idx) => {
     const cellsHtml = pageWords.map(w =>
       '<div class="print-cell">' +
-      '<img src="' + getImgUrl(w.word, w.image_prompt, w.unit_id) + '" loading="lazy">' +
+      '<img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '">' +
       '<div class="print-cell-text"><div class="pw">' + esc(w.word) + '</div><div class="pc">' + esc(w.chinese) + '</div></div>' +
       '</div>'
     ).join('');
@@ -727,6 +827,7 @@ function updatePrintPreview() {
 
   previewWrap.innerHTML = previewHtml;
   printArea.innerHTML = printHtml;
+  loadLazyImages(previewWrap);
 }
 
 // ========== Tab 4: Admin ==========
@@ -777,10 +878,46 @@ async function deleteBook(id) {
   } catch (e) { showMsg('book-msg', false, '保存失败'); }
 }
 
+async function editBook(id) {
+  const book = APP_DATA.books.find(b => b.book_id === id);
+  if (!book) return;
+  editingBookId = id;
+  document.getElementById('new-book-name').value = book.book_name;
+  document.getElementById('book-add-btn').style.display = 'none';
+  document.getElementById('book-update-btn').style.display = '';
+  document.getElementById('book-cancel-btn').style.display = '';
+}
+
+async function updateBook() {
+  const name = document.getElementById('new-book-name').value.trim();
+  if (!name) return;
+  const book = APP_DATA.books.find(b => b.book_id === editingBookId);
+  if (book) book.book_name = name;
+  try {
+    await saveData(APP_DATA);
+    cancelEditBook();
+    renderBookTable(); renderAdmin();
+    populateBookSelect('card'); populateBookSelect('picker'); populateBookSelect('print');
+    showMsg('book-msg', true, '更新成功');
+  } catch (e) { showMsg('book-msg', false, '保存失败: ' + e.message); }
+}
+
+function cancelEditBook() {
+  editingBookId = null;
+  document.getElementById('new-book-name').value = '';
+  document.getElementById('book-add-btn').style.display = '';
+  document.getElementById('book-update-btn').style.display = 'none';
+  document.getElementById('book-cancel-btn').style.display = 'none';
+}
+
 function renderBookTable() {
   const tbody = document.querySelector('#admin-book-table tbody');
-  tbody.innerHTML = APP_DATA.books.map(b =>
-    '<tr><td>' + esc(b.book_id) + '</td><td>' + esc(b.book_name) + '</td><td><button class="admin-btn danger small" onclick="deleteBook(\'' + b.book_id + '\')">删除</button></td></tr>'
+  const kw = searchBook.toLowerCase();
+  const filtered = kw ? APP_DATA.books.filter(b => b.book_name.toLowerCase().includes(kw)) : APP_DATA.books;
+  tbody.innerHTML = filtered.map(b =>
+    '<tr><td>' + esc(b.book_id) + '</td><td>' + esc(b.book_name) + '</td><td>' +
+    '<button class="admin-btn small" onclick="editBook(\'' + b.book_id + '\')">编辑</button> ' +
+    '<button class="admin-btn danger small" onclick="deleteBook(\'' + b.book_id + '\')">删除</button></td></tr>'
   ).join('');
 }
 
@@ -814,13 +951,101 @@ async function deleteUnit(id) {
   } catch (e) { showMsg('unit-msg', false, '保存失败'); }
 }
 
+async function editUnit(id) {
+  const unit = APP_DATA.units.find(u => u.unit_id === id);
+  if (!unit) return;
+  editingUnitId = id;
+  document.getElementById('new-unit-book').value = unit.book_id;
+  document.getElementById('new-unit-name').value = unit.unit_name;
+  document.getElementById('new-unit-style').value = unit.image_style;
+  document.getElementById('unit-add-btn').style.display = 'none';
+  document.getElementById('unit-update-btn').style.display = '';
+  document.getElementById('unit-cancel-btn').style.display = '';
+}
+
+async function updateUnit() {
+  const bookId = document.getElementById('new-unit-book').value;
+  const name = document.getElementById('new-unit-name').value.trim();
+  const style = document.getElementById('new-unit-style').value;
+  if (!bookId || !name) return;
+  const unit = APP_DATA.units.find(u => u.unit_id === editingUnitId);
+  if (unit) { unit.unit_name = name; unit.book_id = bookId; unit.image_style = style; }
+  try {
+    await saveData(APP_DATA);
+    cancelEditUnit();
+    renderUnitTable(); renderAdmin();
+    populateUnitSelect('card'); populateUnitSelect('picker'); populateUnitSelect('print');
+    showMsg('unit-msg', true, '更新成功');
+  } catch (e) { showMsg('unit-msg', false, '保存失败: ' + e.message); }
+}
+
+function cancelEditUnit() {
+  editingUnitId = null;
+  document.getElementById('new-unit-book').value = '';
+  document.getElementById('new-unit-name').value = '';
+  document.getElementById('new-unit-style').value = 'photo';
+  document.getElementById('unit-add-btn').style.display = '';
+  document.getElementById('unit-update-btn').style.display = 'none';
+  document.getElementById('unit-cancel-btn').style.display = 'none';
+}
+
 function renderUnitTable() {
   const tbody = document.querySelector('#admin-unit-table tbody');
-  tbody.innerHTML = APP_DATA.units.map(u =>
-    '<tr><td>' + esc(u.unit_id) + '</td><td>' + esc(u.unit_name) + '</td><td>' + esc(getUnitBook(u.unit_id)) + '</td><td>' + esc(u.image_style) + '</td><td><button class="admin-btn danger small" onclick="deleteUnit(\'' + u.unit_id + '\')">删除</button></td></tr>'
+  const kw = searchUnit.toLowerCase();
+  const filtered = kw ? APP_DATA.units.filter(u => u.unit_name.toLowerCase().includes(kw) || getUnitBook(u.unit_id).toLowerCase().includes(kw)) : APP_DATA.units;
+  tbody.innerHTML = filtered.map(u =>
+    '<tr><td>' + esc(u.unit_id) + '</td><td>' + esc(u.unit_name) + '</td><td>' + esc(getUnitBook(u.unit_id)) + '</td><td>' + esc(u.image_style) + '</td><td>' +
+    '<button class="admin-btn small" onclick="editUnit(\'' + u.unit_id + '\')">编辑</button> ' +
+    '<button class="admin-btn danger small" onclick="deleteUnit(\'' + u.unit_id + '\')">删除</button></td></tr>'
   ).join('');
 }
 
+// ========== Word Edit functions ==========
+async function editWord(word, unitId) {
+  const w = APP_DATA.words.find(x => x.word === word && x.unit_id === unitId);
+  if (!w) return;
+  editingWord = { word: w.word, unit_id: w.unit_id };
+  document.getElementById('new-word-unit').value = w.unit_id;
+  document.getElementById('new-word-en').value = w.word;
+  document.getElementById('new-word-cn').value = w.chinese;
+  document.getElementById('new-word-prompt').value = w.image_prompt || '';
+  document.getElementById('word-add-btn').style.display = 'none';
+  document.getElementById('word-update-btn').style.display = '';
+  document.getElementById('word-cancel-btn').style.display = '';
+}
+
+async function updateWord() {
+  if (!editingWord) return;
+  const unitId = document.getElementById('new-word-unit').value;
+  const en = document.getElementById('new-word-en').value.trim().toLowerCase();
+  const cn = document.getElementById('new-word-cn').value.trim();
+  const prompt = document.getElementById('new-word-prompt').value.trim();
+  if (!unitId || !en || !cn) return;
+  // Check duplicate (exclude self)
+  const duplicate = APP_DATA.words.find(w => w.word === en && w.unit_id === unitId &&
+    !(w.word === editingWord.word && w.unit_id === editingWord.unit_id));
+  if (duplicate) { showMsg('word-msg', false, '该单元已存在这个单词'); return; }
+  const w = APP_DATA.words.find(x => x.word === editingWord.word && x.unit_id === editingWord.unit_id);
+  if (w) { w.word = en; w.chinese = cn; w.unit_id = unitId; w.image_prompt = prompt; }
+  try {
+    await saveData(APP_DATA);
+    cancelEditWord();
+    renderWordTable(); renderCards(); renderPrintWordList();
+    showMsg('word-msg', true, '更新成功');
+  } catch (e) { showMsg('word-msg', false, '保存失败: ' + e.message); }
+}
+
+function cancelEditWord() {
+  editingWord = null;
+  document.getElementById('new-word-en').value = '';
+  document.getElementById('new-word-cn').value = '';
+  document.getElementById('new-word-prompt').value = '';
+  document.getElementById('word-add-btn').style.display = '';
+  document.getElementById('word-update-btn').style.display = 'none';
+  document.getElementById('word-cancel-btn').style.display = 'none';
+}
+
+// ========== Word Add ==========
 async function addWord() {
   const unitId = document.getElementById('new-word-unit').value;
   const en = document.getElementById('new-word-en').value.trim().toLowerCase();
@@ -852,9 +1077,135 @@ async function deleteWord(word, unitId) {
 
 function renderWordTable() {
   const tbody = document.querySelector('#admin-word-table tbody');
-  tbody.innerHTML = APP_DATA.words.map(w =>
-    '<tr><td><img src="' + getImgUrl(w.word, w.image_prompt, w.unit_id) + '" loading="lazy"></td><td>' + esc(w.word) + '</td><td>' + esc(w.chinese) + '</td><td>' + esc(getUnitName(w.unit_id)) + '</td><td><button class="admin-btn danger small" onclick="deleteWord(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">删除</button></td></tr>'
+  const kw = searchWord.toLowerCase();
+  const filtered = kw ? APP_DATA.words.filter(w => w.word.toLowerCase().includes(kw) || w.chinese.includes(kw)) : APP_DATA.words;
+  tbody.innerHTML = filtered.map(w =>
+    '<tr><td><img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '"></td><td>' + esc(w.word) + '</td><td>' + esc(w.chinese) + '</td><td>' + esc(getUnitName(w.unit_id)) + '</td><td>' +
+    '<button class="admin-btn small" onclick="editWord(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">编辑</button> ' +
+    '<button class="admin-btn danger small" onclick="deleteWord(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">删除</button></td></tr>'
   ).join('');
+  loadLazyImages(tbody);
+}
+
+// ========== Batch Import Words ==========
+function downloadWordTemplate() {
+  const BOM = '\uFEFF';
+  const header = '书名,单元名,单词,中文,图片风格';
+  const example = 'Power Up 1,Colors,red,红色,photo';
+  const csv = BOM + header + '\n' + example + '\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '单词批量导入模板.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function handleWordFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) { parseWordCSV(e.target.result); };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+function parseWordCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) { showMsg('word-msg', false, '文件为空或格式不正确'); return; }
+  const header = parseCSVLine(lines[0]);
+  const colMap = {};
+  header.forEach((h, i) => { colMap[h.trim()] = i; });
+  const idxBook = colMap['书名'];
+  const idxUnit = colMap['单元名'];
+  const idxWord = colMap['单词'];
+  const idxChinese = colMap['中文'];
+  const idxStyle = colMap['图片风格'];
+  if (idxBook === undefined || idxUnit === undefined || idxWord === undefined || idxChinese === undefined) {
+    showMsg('word-msg', false, '模板格式不正确，请重新下载模板');
+    return;
+  }
+  const newWords = [];
+  const newUnits = [];
+  const errors = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 4) continue;
+    const bookName = (cols[idxBook] || '').trim();
+    const unitName = (cols[idxUnit] || '').trim();
+    const word = (cols[idxWord] || '').trim().toLowerCase();
+    const chinese = (cols[idxChinese] || '').trim();
+    const style = idxStyle !== undefined ? (cols[idxStyle] || 'photo').trim() : 'photo';
+    if (!bookName || !unitName || !word || !chinese) {
+      errors.push('第' + (i+1) + '行：数据不完整');
+      continue;
+    }
+    const book = APP_DATA.books.find(b => b.book_name === bookName);
+    if (!book) {
+      errors.push('第' + (i+1) + '行：找不到书「' + bookName + '」');
+      continue;
+    }
+    let unit = APP_DATA.units.find(u => u.book_id === book.book_id && u.unit_name === unitName);
+    if (!unit) {
+      const newUnitId = 'unit_' + Date.now() + '_' + i;
+      unit = { unit_id: newUnitId, unit_name: unitName, book_id: book.book_id, image_style: style || 'photo' };
+      newUnits.push(unit);
+      APP_DATA.units.push(unit);
+    }
+    const exists = APP_DATA.words.some(w => w.word === word && w.unit_id === unit.unit_id);
+    if (exists) {
+      errors.push('第' + (i+1) + '行：单词「' + word + '」在单元「' + unitName + '」中已存在');
+      continue;
+    }
+    newWords.push({ word: word, chinese: chinese, unit_id: unit.unit_id, image_prompt: '' });
+  }
+  if (errors.length > 0 && newWords.length === 0) {
+    // Rollback newly added units
+    newUnits.forEach(u => {
+      APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id);
+    });
+    showMsg('word-msg', false, '导入失败：\n' + errors.join('\n'));
+    return;
+  }
+  let msg = '即将导入 ' + newWords.length + ' 个单词';
+  if (newUnits.length > 0) msg += '\n自动创建 ' + newUnits.length + ' 个单元';
+  if (errors.length > 0) msg += '\n跳过 ' + errors.length + ' 行（原因：' + errors.join('；') + '）';
+  if (!confirm(msg + '\n\n确认导入？')) {
+    newUnits.forEach(u => {
+      APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id);
+    });
+    return;
+  }
+  APP_DATA.words.push(...newWords);
+  saveData(APP_DATA).then(() => {
+    renderAdmin();
+    renderWordTable(); renderCards(); renderPrintWordList();
+    showMsg('word-msg', true, '成功导入 ' + newWords.length + ' 个单词' + (errors.length > 0 ? '，跳过 ' + errors.length + ' 行' : ''));
+  }).catch(e => {
+    showMsg('word-msg', false, '保存失败: ' + e.message);
+  });
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuote) {
+      if (c === '"') {
+        if (i + 1 < line.length && line[i+1] === '"') { current += '"'; i++; }
+        else { inQuote = false; }
+      } else { current += c; }
+    } else {
+      if (c === '"') { inQuote = true; }
+      else if (c === ',') { result.push(current); current = ''; }
+      else { current += c; }
+    }
+  }
+  result.push(current);
+  return result;
 }
 
 // ========== Utility ==========
