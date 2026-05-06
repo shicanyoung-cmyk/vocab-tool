@@ -211,36 +211,6 @@
       "chinese": "10",
       "unit_id": "unit_2",
       "image_prompt": "number 10,white clean backgroung"
-    },
-    {
-      "word": "rubber",
-      "chinese": "橡皮",
-      "unit_id": "unit_1778070940212_1",
-      "image_prompt": ""
-    },
-    {
-      "word": "pencil",
-      "chinese": "铅笔",
-      "unit_id": "unit_1778070940212_2",
-      "image_prompt": ""
-    },
-    {
-      "word": "crayon",
-      "chinese": "蜡笔",
-      "unit_id": "unit_1778070940212_3",
-      "image_prompt": ""
-    },
-    {
-      "word": "chair",
-      "chinese": "椅子",
-      "unit_id": "unit_1778070940212_4",
-      "image_prompt": ""
-    },
-    {
-      "word": "book",
-      "chinese": "书",
-      "unit_id": "unit_1778070940212_5",
-      "image_prompt": ""
     }
   ]
 }
