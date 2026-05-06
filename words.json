@@ -17,6 +17,72 @@
       "unit_name": "Numbers 1-10",
       "book_id": "book_1",
       "image_style": "cartoon"
+    },
+    {
+      "unit_id": "unit_1778070940212_1",
+      "unit_name": "1 Our new school_Vocabulary 1",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_2",
+      "unit_name": "1 Our new school_Vocabulary 2",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_3",
+      "unit_name": "1 Our new school_Vocabulary 3",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_4",
+      "unit_name": "1 Our new school_Vocabulary 4",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_5",
+      "unit_name": "1 Our new school_Vocabulary 5",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_6",
+      "unit_name": "1 Our new school_Vocabulary 6",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_7",
+      "unit_name": "1 Our new school_Vocabulary 7",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_8",
+      "unit_name": "1 Our new school_Vocabulary 8",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_9",
+      "unit_name": "1 Our new school_Vocabulary 9",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_10",
+      "unit_name": "1 Our new school_Vocabulary 10",
+      "book_id": "book_1",
+      "image_style": "photo"
+    },
+    {
+      "unit_id": "unit_1778070940212_11",
+      "unit_name": "1 Our new school_Vocabulary 11",
+      "book_id": "book_1",
+      "image_style": "photo"
     }
   ],
   "words": [
@@ -145,6 +211,72 @@
       "chinese": "10",
       "unit_id": "unit_2",
       "image_prompt": "number 10,white clean backgroung"
+    },
+    {
+      "word": "rubber",
+      "chinese": "橡皮",
+      "unit_id": "unit_1778070940212_1",
+      "image_prompt": ""
+    },
+    {
+      "word": "pencil",
+      "chinese": "铅笔",
+      "unit_id": "unit_1778070940212_2",
+      "image_prompt": ""
+    },
+    {
+      "word": "crayon",
+      "chinese": "蜡笔",
+      "unit_id": "unit_1778070940212_3",
+      "image_prompt": ""
+    },
+    {
+      "word": "chair",
+      "chinese": "椅子",
+      "unit_id": "unit_1778070940212_4",
+      "image_prompt": ""
+    },
+    {
+      "word": "book",
+      "chinese": "书",
+      "unit_id": "unit_1778070940212_5",
+      "image_prompt": ""
+    },
+    {
+      "word": "pen",
+      "chinese": "钢笔",
+      "unit_id": "unit_1778070940212_6",
+      "image_prompt": ""
+    },
+    {
+      "word": "pencil case",
+      "chinese": "铅笔盒",
+      "unit_id": "unit_1778070940212_7",
+      "image_prompt": ""
+    },
+    {
+      "word": "bag",
+      "chinese": "书包",
+      "unit_id": "unit_1778070940212_8",
+      "image_prompt": ""
+    },
+    {
+      "word": "desk",
+      "chinese": "课桌",
+      "unit_id": "unit_1778070940212_9",
+      "image_prompt": ""
+    },
+    {
+      "word": "teacher",
+      "chinese": "老师",
+      "unit_id": "unit_1778070940212_10",
+      "image_prompt": ""
+    },
+    {
+      "word": "classroom",
+      "chinese": "教室",
+      "unit_id": "unit_1778070940212_11",
+      "image_prompt": ""
     }
   ]
 }
