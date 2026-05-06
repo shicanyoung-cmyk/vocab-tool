@@ -1317,10 +1317,30 @@ function parseWordCSV(text) {
   saveData(APP_DATA).then(() => {
     renderAdmin();
     renderWordTable(); renderCards(); renderPrintWordList();
-    showMsg('word-msg', true, '成功导入 ' + newWords.length + ' 个单词' + (errors.length > 0 ? '，跳过 ' + errors.length + ' 行' : ''));
+    showMsg('word-msg', true, '成功导入 ' + newWords.length + ' 个单词' + (errors.length > 0 ? '，跳过 ' + errors.length + ' 行' : '') + '\n⏳ 正在生成图片，请稍候...');
+    // 主动触发生成所有新导入单词的图片
+    setTimeout(() => triggerBatchImageGen(newWords), 500);
   }).catch(e => {
     showMsg('word-msg', false, '保存失败: ' + e.message);
   });
+}
+
+// 批量主动触发生成图片（不依赖懒加载）
+function triggerBatchImageGen(wordList) {
+  if (!wordList || wordList.length === 0) return;
+  setStatus('正在准备生成 ' + wordList.length + ' 张图片...');
+  let queued = 0;
+  wordList.forEach(w => {
+    // 查找对应的 img 元素（管理表格 + 卡片网格）
+    const sel = 'img[data-src-word="' + esc(w.word) + '"]';
+    document.querySelectorAll(sel).forEach(img => {
+      if (!img.src || !img.src.startsWith('data:')) {
+        loadImage(img, w.word, w.image_prompt || '', w.unit_id);
+        queued++;
+      }
+    });
+  });
+  if (queued > 0) setStatus('已加入生成队列：' + queued + ' 张图片，正在处理...');
 }
 
 function parseCSVLine(line) {
