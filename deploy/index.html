@@ -155,6 +155,37 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
   .print-area .print-page:last-child { page-break-after: auto; }
   .print-area .print-page-label { display: none; }
 }
+/* ========== Edit Modal ========== */
+.edit-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.edit-modal-overlay.hidden { display: none; }
+.edit-modal { background: #fff; border-radius: 16px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.edit-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 12px; border-bottom: 1px solid #f0f0f0; }
+.edit-modal-header h3 { font-size: 18px; color: #333; }
+.edit-modal-close { font-size: 24px; cursor: pointer; color: #999; line-height: 1; }
+.edit-modal-close:hover { color: #333; }
+.edit-modal-body { padding: 20px 24px; }
+.edit-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 24px 20px; border-top: 1px solid #f0f0f0; }
+.edit-field { margin-bottom: 16px; }
+.edit-field label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 600; }
+.edit-field input[type="text"], .edit-field textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; }
+.edit-field input:focus, .edit-field textarea:focus { border-color: #4472C4; }
+.edit-field textarea { resize: vertical; min-height: 60px; }
+.edit-word-display { font-size: 20px; font-weight: 700; color: #4472C4; padding: 8px 0; }
+.edit-image-preview { width: 100%; height: 180px; background: #f5f5f5; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.edit-image-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.edit-image-placeholder { color: #999; font-size: 14px; }
+.edit-image-actions { display: flex; gap: 10px; }
+.edit-upload-btn { padding: 8px 16px; background: #f0f0f0; border-radius: 8px; cursor: pointer; font-size: 13px; color: #333; display: inline-flex; align-items: center; gap: 4px; }
+.edit-upload-btn:hover { background: #e0e0e0; }
+.edit-btn { padding: 8px 18px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; background: #f0f0f0; color: #333; }
+.edit-btn:hover { background: #e0e0e0; }
+.edit-btn.primary { background: #4472C4; color: #fff; }
+.edit-btn.primary:hover { background: #3a5fa0; }
+.edit-prompt-section { display: none; margin-top: 12px; padding: 16px; background: #f8f9fa; border-radius: 10px; }
+.edit-prompt-section.show { display: block; }
+.edit-prompt-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.prompt-tag { padding: 4px 10px; background: #e8edf3; border-radius: 12px; font-size: 12px; color: #4472C4; cursor: pointer; border: 1px solid transparent; }
+.prompt-tag:hover { background: #d0d8e8; border-color: #4472C4; }
 </style>
 </head>
 <body>
@@ -325,6 +356,58 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
     <img id="lb-img" src="">
     <div class="lb-word" id="lb-word"></div>
     <div class="lb-chinese" id="lb-chinese"></div>
+  </div>
+</div>
+
+<!-- Edit Word Modal -->
+<div class="edit-modal-overlay" id="edit-modal" onclick="closeEditModal(event)">
+  <div class="edit-modal" onclick="event.stopPropagation()">
+    <div class="edit-modal-header">
+      <h3 id="edit-modal-title">编辑单词</h3>
+      <span class="edit-modal-close" onclick="closeEditModal()">&times;</span>
+    </div>
+    <div class="edit-modal-body">
+      <div class="edit-field">
+        <label>单词</label>
+        <div class="edit-word-display" id="edit-word-display"></div>
+      </div>
+      <div class="edit-field">
+        <label for="edit-chinese-input">中文意思</label>
+        <input type="text" id="edit-chinese-input" placeholder="输入中文意思">
+      </div>
+      <div class="edit-field">
+        <label>当前图片</label>
+        <div class="edit-image-preview" id="edit-image-preview">
+          <img id="edit-preview-img" src="" alt="">
+          <div class="edit-image-placeholder" id="edit-image-placeholder">暂无图片</div>
+        </div>
+      </div>
+      <div class="edit-field">
+        <label>修改图片</label>
+        <div class="edit-image-actions">
+          <label class="edit-upload-btn">
+            📁 上传本地图片
+            <input type="file" id="edit-image-upload" accept="image/*" onchange="handleEditImageUpload(event)" style="display:none">
+          </label>
+          <button class="edit-btn" onclick="showPromptSection()">🤖 用提示词重新生成</button>
+        </div>
+      </div>
+      <div class="edit-prompt-section" id="edit-prompt-section">
+        <div class="edit-field">
+          <label>推荐提示词 <span style="font-weight:normal;color:#888;font-size:12px;">（点击使用）</span></label>
+          <div class="edit-prompt-suggestions" id="edit-prompt-suggestions"></div>
+        </div>
+        <div class="edit-field">
+          <label for="edit-prompt-input">自定义提示词</label>
+          <textarea id="edit-prompt-input" placeholder="输入英文提示词，如：red apple on white background"></textarea>
+        </div>
+        <button class="edit-btn primary" onclick="regenerateImage()" style="width:100%;margin-top:8px;">🎨 生成图片</button>
+      </div>
+    </div>
+    <div class="edit-modal-footer">
+      <button class="edit-btn" onclick="closeEditModal()">取消</button>
+      <button class="edit-btn primary" onclick="saveEditFromModal()">💾 保存</button>
+    </div>
   </div>
 </div>
 
@@ -1081,18 +1164,205 @@ function renderUnitTable() {
   ).join('');
 }
 
-// ========== Word Edit functions ==========
-async function editWord(word, unitId) {
+// ========== Word Edit Modal ==========
+let editingWordObj = null; // { word, unitId }
+let editCustomImageBase64 = null; // uploaded image base64
+let editNewImageBlob = null;     // newly generated image blob
+
+async function openEditModal(word, unitId) {
   const w = APP_DATA.words.find(x => x.word === word && x.unit_id === unitId);
   if (!w) return;
-  editingWord = { word: w.word, unit_id: w.unit_id };
-  document.getElementById('new-word-unit').value = w.unit_id;
-  document.getElementById('new-word-en').value = w.word;
-  document.getElementById('new-word-cn').value = w.chinese;
-  document.getElementById('new-word-prompt').value = w.image_prompt || '';
-  document.getElementById('word-add-btn').style.display = 'none';
-  document.getElementById('word-update-btn').style.display = '';
-  document.getElementById('word-cancel-btn').style.display = '';
+  editingWordObj = { word: w.word, unit_id: w.unit_id };
+  editCustomImageBase64 = null;
+  editNewImageBlob = null;
+
+  document.getElementById('edit-modal-title').textContent = '编辑单词：「' + w.word + '」';
+  document.getElementById('edit-word-display').textContent = w.word;
+  document.getElementById('edit-chinese-input').value = w.chinese || '';
+  document.getElementById('edit-prompt-input').value = w.image_prompt || '';
+  document.getElementById('edit-prompt-section').classList.remove('show');
+
+  // Show current image
+  const previewImg = document.getElementById('edit-preview-img');
+  const placeholder = document.getElementById('edit-image-placeholder');
+  previewImg.style.display = 'none';
+  placeholder.style.display = 'flex';
+
+  // Try to load current image
+  const cacheKey = w.unit_id + '/' + w.word.toLowerCase();
+  const cached = await getCachedImage(cacheKey);
+  if (cached) {
+    previewImg.src = cached;
+    previewImg.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    // Try local GitHub Pages image
+    const localUrl = IMG_BASE + w.unit_id + '/' + w.word.toLowerCase() + '.png';
+    const testImg = new Image();
+    testImg.onload = () => {
+      previewImg.src = localUrl;
+      previewImg.style.display = 'block';
+      placeholder.style.display = 'none';
+    };
+    testImg.src = localUrl;
+  }
+
+  // Generate prompt suggestions
+  renderPromptSuggestions(w.word, w.chinese || '', getUnitStyle(w.unit_id));
+
+  // Show modal
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal(event) {
+  if (event && event.target !== document.getElementById('edit-modal')) return;
+  document.getElementById('edit-modal').classList.add('hidden');
+  editingWordObj = null;
+  editCustomImageBase64 = null;
+  editNewImageBlob = null;
+}
+
+function renderPromptSuggestions(word, chinese, style) {
+  const container = document.getElementById('edit-prompt-suggestions');
+  const suggestions = getSuggestedPrompts(word, chinese, style);
+  container.innerHTML = suggestions.map(p =>
+    '<span class="prompt-tag" onclick="useSuggestedPrompt(\'' + p.replace(/'/g, "\\'") + '\')">' + p + '</span>'
+  ).join('');
+}
+
+function useSuggestedPrompt(prompt) {
+  document.getElementById('edit-prompt-input').value = prompt;
+}
+
+function getSuggestedPrompts(word, chinese, style) {
+  const w = word.toLowerCase();
+  const c = chinese;
+  const s = style || 'photo';
+  const prompts = [];
+
+  // Style-based prompt
+  if (s === 'cartoon') {
+    prompts.push('cute cartoon ' + w + ', simple white background');
+    prompts.push('cartoon style ' + w + ', ' + c + ', white background');
+  } else {
+    prompts.push(w + ', white background, product photo');
+    prompts.push(w + ' object, studio lighting, white background');
+  }
+
+  // Chinese meaning in prompt
+  if (c) {
+    prompts.push(w + ' (' + c + '), ' + (s === 'cartoon' ? 'cartoon' : 'product') + ' style');
+  }
+
+  // Color words
+  const colorWords = ['red','blue','yellow','green','black','white','orange','purple','pink','brown','gray','grey'];
+  if (colorWords.includes(w)) {
+    prompts.push(w + ' color fill, clean, minimal');
+    prompts.push('a red apple for red color, white background');
+  }
+
+  // Number words
+  const numWords = ['one','two','three','four','five','six','seven','eight','nine','ten'];
+  if (numWords.includes(w)) {
+    prompts.push(w + ' ' + c + ' objects, arranged, white background');
+  }
+
+  return prompts;
+}
+
+function showPromptSection() {
+  document.getElementById('edit-prompt-section').classList.add('show');
+}
+
+async function handleEditImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('请选择图片文件'); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result;
+    editCustomImageBase64 = base64;
+    editNewImageBlob = null; // reset generated image
+
+    const previewImg = document.getElementById('edit-preview-img');
+    const placeholder = document.getElementById('edit-image-placeholder');
+    previewImg.src = base64;
+    previewImg.style.display = 'block';
+    placeholder.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+async function regenerateImage() {
+  if (!editingWordObj) return;
+  const prompt = document.getElementById('edit-prompt-input').value.trim();
+  if (!prompt) { alert('请输入提示词'); return; }
+
+  const w = APP_DATA.words.find(x => x.word === editingWordObj.word && x.unit_id === editingWordObj.unit_id);
+  if (!w) return;
+
+  setStatus('Generating image: ' + w.word);
+  const seed = md5Seed(w.word);
+  const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?width=512&height=512&model=flux&nologo=true&seed=' + seed;
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('生成失败');
+    const blob = await resp.blob();
+    editNewImageBlob = blob;
+    editCustomImageBase64 = null; // reset uploaded image
+
+    const previewImg = document.getElementById('edit-preview-img');
+    const placeholder = document.getElementById('edit-image-placeholder');
+    previewImg.src = URL.createObjectURL(blob);
+    previewImg.style.display = 'block';
+    placeholder.style.display = 'none';
+
+    setStatus('图片生成成功');
+  } catch (e) {
+    setStatus('图片生成失败: ' + e.message);
+    alert('图片生成失败，请重试');
+  }
+}
+
+async function saveEditFromModal() {
+  if (!editingWordObj) return;
+  const newChinese = document.getElementById('edit-chinese-input').value.trim();
+  const newPrompt = document.getElementById('edit-prompt-input').value.trim();
+  if (!newChinese) { alert('请输入中文意思'); return; }
+
+  const w = APP_DATA.words.find(x => x.word === editingWordObj.word && x.unit_id === editingWordObj.unit_id);
+  if (!w) return;
+
+  w.chinese = newChinese;
+  w.image_prompt = newPrompt;
+
+  // Save custom uploaded image to IndexedDB (overwrite normal cache so loadImage finds it)
+  if (editCustomImageBase64) {
+    const cacheKey = w.unit_id + '/' + w.word.toLowerCase();
+    // Convert base64 to blob and cache
+    const res = await fetch(editCustomImageBase64);
+    const blob = await res.blob();
+    await cacheImage(cacheKey, blob);
+  }
+
+  // Save newly generated image to IndexedDB and update image_prompt
+  if (editNewImageBlob) {
+    const cacheKey = w.unit_id + '/' + w.word.toLowerCase();
+    await cacheImage(cacheKey, editNewImageBlob);
+    w.image_prompt = newPrompt;
+  }
+
+  try {
+    await saveData(APP_DATA);
+    closeEditModal();
+    renderWordTable(); renderCards(); renderPrintWordList();
+    showMsg('word-msg', true, '更新成功');
+  } catch (e) {
+    showMsg('word-msg', false, '保存失败: ' + e.message);
+  }
 }
 
 async function updateWord() {
@@ -1162,7 +1432,7 @@ function renderWordTable() {
   const filtered = kw ? APP_DATA.words.filter(w => w.word.toLowerCase().includes(kw) || w.chinese.includes(kw)) : APP_DATA.words;
   tbody.innerHTML = filtered.map(w =>
     '<tr><td><img data-src-word="' + esc(w.word) + '" data-src-prompt="' + esc(w.image_prompt) + '" data-src-unit="' + esc(w.unit_id) + '"></td><td>' + esc(w.word) + '</td><td>' + esc(w.chinese) + '</td><td>' + esc(getUnitName(w.unit_id)) + '</td><td>' +
-    '<button class="admin-btn small" onclick="editWord(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">编辑</button> ' +
+    '<button class="admin-btn small" onclick="openEditModal(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">编辑</button> ' +
     '<button class="admin-btn danger small" onclick="deleteWord(\'' + esc(w.word) + '\',\'' + esc(w.unit_id) + '\')">删除</button></td></tr>'
   ).join('');
   loadLazyImages(tbody);
