@@ -300,6 +300,13 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
         <button class="admin-btn" style="background:#27ae60;" onclick="document.getElementById('word-file-input').click()">📤 批量导入</button>
         <input type="file" id="word-file-input" accept=".csv,.tsv,.txt" style="display:none" onchange="handleWordFile(event)">
       </div>
+      <div class="import-help">
+        📌 <strong>批量导入说明：</strong>
+        ① 先点击「📥 下载模板」获取标准CSV →
+        ② 用<strong>记事本</strong>或Excel填写，<span style="color:#e74c3c">不要修改第一行的列名！</span>→
+        ③ 支持中/英文列名：书名/book、单元名/unit、单词/word、中文/chinese、图片风格/style（顺序不限）→
+        ④ 保存为CSV格式，点击「📤 批量导入」上传
+      </div>
       <input class="admin-search" id="word-search" placeholder="搜索单词或中文..." oninput="searchWord=this.value;renderWordTable()">
       <table class="admin-table" id="admin-word-table"><thead><tr><th>预览</th><th>单词</th><th>中文</th><th>单元</th><th>操作</th></tr></thead><tbody></tbody></table>
       <div class="admin-msg" id="word-msg"></div>
@@ -407,16 +414,68 @@ let searchBook = '';
 let searchUnit = '';
 let searchWord = '';
 
-// ========== Image Loading ==========
-// Base URL for local images on GitHub Pages
+// ========== Image Loading (with IndexedDB cache + lazy load) ==========
 const IMG_BASE = 'images/';
+const IMG_DB_NAME = 'vocab-images';
+const IMG_DB_STORE = 'images';
+let imgDb = null;
 
-// Try local image first, fallback to Pollinations API for new words
+function openImageDB() {
+  if (imgDb) return Promise.resolve(imgDb);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IMG_DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IMG_DB_STORE)) {
+        db.createObjectStore(IMG_DB_STORE, { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = e => { imgDb = e.target.result; resolve(imgDb); };
+    req.onerror = e => { imgDb = null; reject(e); };
+  });
+}
+
+async function getCachedImage(key) {
+  try {
+    const db = await openImageDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IMG_DB_STORE, 'readonly');
+      const store = tx.objectStore(IMG_DB_STORE);
+      const req = store.get(key);
+      req.onsuccess = e => {
+        const result = e.target.result;
+        if (result) resolve(URL.createObjectURL(new Blob([result.data], {type: result.mime || 'image/png'})));
+        else resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    });
+  } catch(e) { return null; }
+}
+
+async function cacheImage(key, blob) {
+  try {
+    const db = await openImageDB();
+    const tx = db.transaction(IMG_DB_STORE, 'readwrite');
+    const store = tx.objectStore(IMG_DB_STORE);
+    store.put({ key, data: await blob.arrayBuffer(), mime: blob.type || 'image/png', ts: Date.now() });
+  } catch(e) { /* ignore */ }
+}
+
+// Main image loader: IndexedDB cache → local file → Pollinations fallback
 async function loadImage(imgEl, word, imagePrompt, unitId) {
   imgEl.dataset.word = word;
   imgEl.alt = word;
 
-  // 1. Try local image on GitHub Pages
+  const cacheKey = unitId + '/' + word.toLowerCase();
+
+  // 1. Check IndexedDB cache
+  const cached = await getCachedImage(cacheKey);
+  if (cached) {
+    imgEl.src = cached;
+    return;
+  }
+
+  // 2. Try local image on GitHub Pages
   const localUrl = IMG_BASE + unitId + '/' + word.toLowerCase() + '.png';
   const localOk = await new Promise(resolve => {
     const testImg = new Image();
@@ -427,12 +486,14 @@ async function loadImage(imgEl, word, imagePrompt, unitId) {
 
   if (localOk) {
     imgEl.src = localUrl;
+    // Also cache it
+    fetch(localUrl).then(r => r.ok ? r.blob() : null).then(b => { if (b) cacheImage(cacheKey, b); });
     return;
   }
 
-  // 2. Fallback: generate via Pollinations API (sequential to avoid 429)
+  // 3. Fallback: generate via Pollinations API (sequential to avoid 429)
   imgEl.style.background = '#e8edf3';
-  imgQueue.push({ imgEl, word, imagePrompt, unitId });
+  imgQueue.push({ imgEl, word, imagePrompt, unitId, cacheKey });
   processImgQueue();
 }
 
@@ -456,6 +517,7 @@ async function processImgQueue() {
       if (resp.ok) {
         const blob = await resp.blob();
         if (item.imgEl.isConnected) item.imgEl.src = URL.createObjectURL(blob);
+        cacheImage(item.cacheKey, blob);
       }
     } catch (e) {
       console.warn('Image generation failed:', item.word, e);
@@ -466,9 +528,27 @@ async function processImgQueue() {
   setStatus('Ready');
 }
 
+// True lazy loading via IntersectionObserver
+let lazyObserver = null;
+
+function initLazyObserver() {
+  if (lazyObserver) return;
+  lazyObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        lazyObserver.unobserve(img);
+        loadImage(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
+      }
+    });
+  }, { rootMargin: '200px' });
+}
+
 function loadLazyImages(container) {
-  container.querySelectorAll('img[data-src-word]').forEach(img => {
-    loadImage(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
+  initLazyObserver();
+  container.querySelectorAll('img[data-src-word]:not([data-observed])').forEach(img => {
+    img.dataset.observed = '1';
+    lazyObserver.observe(img);
   });
 }
 
@@ -1088,6 +1168,23 @@ function renderWordTable() {
 }
 
 // ========== Batch Import Words ==========
+// Column name aliases for flexible matching
+const WORD_CSV_ALIASES = {
+  'book': ['书名', 'book', 'bookname', 'book_name', '书'],
+  'unit': ['单元名', 'unit', 'unitname', 'unit_name', '单元'],
+  'word': ['单词', 'word', 'english', 'en', '英文'],
+  'chinese': ['中文', 'chinese', 'cn', '翻译'],
+  'style': ['图片风格', 'style', 'image_style', '风格']
+};
+
+function matchCsvColumn(header, aliases) {
+  const h = header.trim().toLowerCase();
+  for (const key of aliases) {
+    if (h === key.toLowerCase()) return true;
+  }
+  return false;
+}
+
 function downloadWordTemplate() {
   const BOM = '\uFEFF';
   const header = '书名,单元名,单词,中文,图片风格';
@@ -1115,15 +1212,32 @@ function parseWordCSV(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) { showMsg('word-msg', false, '文件为空或格式不正确'); return; }
   const header = parseCSVLine(lines[0]);
-  const colMap = {};
-  header.forEach((h, i) => { colMap[h.trim()] = i; });
-  const idxBook = colMap['书名'];
-  const idxUnit = colMap['单元名'];
-  const idxWord = colMap['单词'];
-  const idxChinese = colMap['中文'];
-  const idxStyle = colMap['图片风格'];
-  if (idxBook === undefined || idxUnit === undefined || idxWord === undefined || idxChinese === undefined) {
-    showMsg('word-msg', false, '模板格式不正确，请重新下载模板');
+  // Flexible column matching
+  let idxBook = -1, idxUnit = -1, idxWord = -1, idxChinese = -1, idxStyle = -1;
+  const ALIASES = {
+    book: ['书名','book','bookname','book_name','书'],
+    unit: ['单元名','unit','unitname','unit_name','单元'],
+    word: ['单词','word','english','en','英文'],
+    chinese: ['中文','chinese','cn','翻译'],
+    style: ['图片风格','style','image_style','风格']
+  };
+  const found = {};
+  header.forEach((h, i) => {
+    const key = h.trim().toLowerCase();
+    found[i] = key;
+    for (const [k, aliases] of Object.entries(ALIASES)) {
+      if (aliases.some(a => a.toLowerCase() === key)) {
+        if (k === 'book') idxBook = i;
+        if (k === 'unit') idxUnit = i;
+        if (k === 'word') idxWord = i;
+        if (k === 'chinese') idxChinese = i;
+        if (k === 'style') idxStyle = i;
+      }
+    }
+  });
+  if (idxBook === -1 || idxUnit === -1 || idxWord === -1 || idxChinese === -1) {
+    const foundCols = header.map(h => `"${h.trim()}"`).join('，');
+    showMsg('word-msg', false, '列名不匹配！\n文件列名：' + foundCols + '\n需要包含：书名、单元名、单词、中文\n（顺序不限，支持中英文列名）');
     return;
   }
   const newWords = [];
@@ -1131,12 +1245,12 @@ function parseWordCSV(text) {
   const errors = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i]);
-    if (cols.length < 4) continue;
+    if (cols.length < 4) { errors.push('第' + (i+1) + '行：列数不足'); continue; }
     const bookName = (cols[idxBook] || '').trim();
     const unitName = (cols[idxUnit] || '').trim();
     const word = (cols[idxWord] || '').trim().toLowerCase();
     const chinese = (cols[idxChinese] || '').trim();
-    const style = idxStyle !== undefined ? (cols[idxStyle] || 'photo').trim() : 'photo';
+    const style = idxStyle !== -1 ? (cols[idxStyle] || 'photo').trim() : 'photo';
     if (!bookName || !unitName || !word || !chinese) {
       errors.push('第' + (i+1) + '行：数据不完整');
       continue;
@@ -1161,20 +1275,15 @@ function parseWordCSV(text) {
     newWords.push({ word: word, chinese: chinese, unit_id: unit.unit_id, image_prompt: '' });
   }
   if (errors.length > 0 && newWords.length === 0) {
-    // Rollback newly added units
-    newUnits.forEach(u => {
-      APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id);
-    });
+    newUnits.forEach(u => { APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id); });
     showMsg('word-msg', false, '导入失败：\n' + errors.join('\n'));
     return;
   }
   let msg = '即将导入 ' + newWords.length + ' 个单词';
   if (newUnits.length > 0) msg += '\n自动创建 ' + newUnits.length + ' 个单元';
-  if (errors.length > 0) msg += '\n跳过 ' + errors.length + ' 行（原因：' + errors.join('；') + '）';
+  if (errors.length > 0) msg += '\n跳过 ' + errors.length + ' 行';
   if (!confirm(msg + '\n\n确认导入？')) {
-    newUnits.forEach(u => {
-      APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id);
-    });
+    newUnits.forEach(u => { APP_DATA.units = APP_DATA.units.filter(x => x.unit_id !== u.unit_id); });
     return;
   }
   APP_DATA.words.push(...newWords);
