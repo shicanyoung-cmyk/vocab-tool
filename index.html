@@ -414,16 +414,68 @@ let searchBook = '';
 let searchUnit = '';
 let searchWord = '';
 
-// ========== Image Loading ==========
-// Base URL for local images on GitHub Pages
+// ========== Image Loading (with IndexedDB cache + lazy load) ==========
 const IMG_BASE = 'images/';
+const IMG_DB_NAME = 'vocab-images';
+const IMG_DB_STORE = 'images';
+let imgDb = null;
 
-// Try local image first, fallback to Pollinations API for new words
+function openImageDB() {
+  if (imgDb) return Promise.resolve(imgDb);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IMG_DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IMG_DB_STORE)) {
+        db.createObjectStore(IMG_DB_STORE, { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = e => { imgDb = e.target.result; resolve(imgDb); };
+    req.onerror = e => { imgDb = null; reject(e); };
+  });
+}
+
+async function getCachedImage(key) {
+  try {
+    const db = await openImageDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IMG_DB_STORE, 'readonly');
+      const store = tx.objectStore(IMG_DB_STORE);
+      const req = store.get(key);
+      req.onsuccess = e => {
+        const result = e.target.result;
+        if (result) resolve(URL.createObjectURL(new Blob([result.data], {type: result.mime || 'image/png'})));
+        else resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    });
+  } catch(e) { return null; }
+}
+
+async function cacheImage(key, blob) {
+  try {
+    const db = await openImageDB();
+    const tx = db.transaction(IMG_DB_STORE, 'readwrite');
+    const store = tx.objectStore(IMG_DB_STORE);
+    store.put({ key, data: await blob.arrayBuffer(), mime: blob.type || 'image/png', ts: Date.now() });
+  } catch(e) { /* ignore */ }
+}
+
+// Main image loader: IndexedDB cache → local file → Pollinations fallback
 async function loadImage(imgEl, word, imagePrompt, unitId) {
   imgEl.dataset.word = word;
   imgEl.alt = word;
 
-  // 1. Try local image on GitHub Pages
+  const cacheKey = unitId + '/' + word.toLowerCase();
+
+  // 1. Check IndexedDB cache
+  const cached = await getCachedImage(cacheKey);
+  if (cached) {
+    imgEl.src = cached;
+    return;
+  }
+
+  // 2. Try local image on GitHub Pages
   const localUrl = IMG_BASE + unitId + '/' + word.toLowerCase() + '.png';
   const localOk = await new Promise(resolve => {
     const testImg = new Image();
@@ -434,12 +486,14 @@ async function loadImage(imgEl, word, imagePrompt, unitId) {
 
   if (localOk) {
     imgEl.src = localUrl;
+    // Also cache it
+    fetch(localUrl).then(r => r.ok ? r.blob() : null).then(b => { if (b) cacheImage(cacheKey, b); });
     return;
   }
 
-  // 2. Fallback: generate via Pollinations API (sequential to avoid 429)
+  // 3. Fallback: generate via Pollinations API (sequential to avoid 429)
   imgEl.style.background = '#e8edf3';
-  imgQueue.push({ imgEl, word, imagePrompt, unitId });
+  imgQueue.push({ imgEl, word, imagePrompt, unitId, cacheKey });
   processImgQueue();
 }
 
@@ -463,6 +517,7 @@ async function processImgQueue() {
       if (resp.ok) {
         const blob = await resp.blob();
         if (item.imgEl.isConnected) item.imgEl.src = URL.createObjectURL(blob);
+        cacheImage(item.cacheKey, blob);
       }
     } catch (e) {
       console.warn('Image generation failed:', item.word, e);
@@ -473,9 +528,27 @@ async function processImgQueue() {
   setStatus('Ready');
 }
 
+// True lazy loading via IntersectionObserver
+let lazyObserver = null;
+
+function initLazyObserver() {
+  if (lazyObserver) return;
+  lazyObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        lazyObserver.unobserve(img);
+        loadImage(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
+      }
+    });
+  }, { rootMargin: '200px' });
+}
+
 function loadLazyImages(container) {
-  container.querySelectorAll('img[data-src-word]').forEach(img => {
-    loadImage(img, img.dataset.srcWord, img.dataset.srcPrompt || '', img.dataset.srcUnit);
+  initLazyObserver();
+  container.querySelectorAll('img[data-src-word]:not([data-observed])').forEach(img => {
+    img.dataset.observed = '1';
+    lazyObserver.observe(img);
   });
 }
 
