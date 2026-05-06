@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>词汇教学工具</title>
+<script src="https://cdn.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2f5; color: #333; }
@@ -298,14 +299,20 @@ body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; background: #f0f2
         <button class="admin-btn" id="word-cancel-btn" onclick="cancelEditWord()" style="display:none">取消</button>
         <button class="admin-btn" style="background:#e67e22;margin-left:8px;" onclick="downloadWordTemplate()">📥 下载模板</button>
         <button class="admin-btn" style="background:#27ae60;" onclick="document.getElementById('word-file-input').click()">📤 批量导入</button>
+        <select id="import-encoding" title="选择文件编码" style="padding:6px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;background:#fff;margin-left:4px;">
+          <option value="auto">自动检测编码</option>
+          <option value="utf-8">UTF-8</option>
+          <option value="gbk">GBK（Excel默认）</option>
+        </select>
         <input type="file" id="word-file-input" accept=".csv,.tsv,.txt" style="display:none" onchange="handleWordFile(event)">
       </div>
       <div class="import-help">
         📌 <strong>批量导入说明：</strong>
         ① 先点击「📥 下载模板」获取标准CSV →
-        ② 用<strong>记事本</strong>或Excel填写，<span style="color:#e74c3c">不要修改第一行的列名！</span>→
+        ② 用Excel或记事本填写，<span style="color:#e74c3c">不要修改第一行的列名！</span>→
         ③ 支持中/英文列名：书名/book、单元名/unit、单词/word、中文/chinese、图片风格/style（顺序不限）→
-        ④ 保存为CSV格式，点击「📤 批量导入」上传
+        ④ <strong>Excel用户</strong>：另存为时选择"CSV UTF-8（逗号分隔）"可避免乱码 →
+        ⑤ 如仍乱码，请选择「GBK（Excel默认）」编码再导入
       </div>
       <input class="admin-search" id="word-search" placeholder="搜索单词或中文..." oninput="searchWord=this.value;renderWordTable()">
       <table class="admin-table" id="admin-word-table"><thead><tr><th>预览</th><th>单词</th><th>中文</th><th>单元</th><th>操作</th></tr></thead><tbody></tbody></table>
@@ -1201,9 +1208,46 @@ function downloadWordTemplate() {
 function handleWordFile(event) {
   const file = event.target.files[0];
   if (!file) return;
+  const encoding = document.getElementById('import-encoding').value;
   const reader = new FileReader();
-  reader.onload = function(e) { parseWordCSV(e.target.result); };
-  reader.readAsText(file, 'UTF-8');
+  reader.onload = function(e) {
+    const bytes = new Uint8Array(e.target.result);
+    let text;
+    // 检测 BOM
+    const hasBOM = bytes.length >= 3 && bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF;
+    if (encoding === 'auto') {
+      // 自动检测：有 BOM → UTF-8，否则先试 UTF-8，失败则 GBK
+      if (hasBOM) {
+        text = new TextDecoder('utf-8').decode(bytes.slice(3));
+      } else {
+        // 尝试 UTF-8
+        try {
+          text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+          // 检查是否乱码（包含大量 �）
+          if ([...text].filter(c=>c==='\uFFFD').length > text.length * 0.1) throw new Error('乱码');
+        } catch(e) {
+          // UTF-8 失败，尝试 GBK
+          try {
+            text = new TextDecoder('gbk').decode(bytes);
+          } catch(e2) {
+            text = new TextDecoder('utf-8').decode(bytes); // 兜底
+          }
+        }
+      }
+    } else if (encoding === 'gbk') {
+      try {
+        text = new TextDecoder('gbk').decode(bytes);
+      } catch(e) {
+        text = new TextDecoder('utf-8').decode(bytes); // 兜底
+      }
+    } else {
+      // UTF-8
+      const b = hasBOM ? bytes.slice(3) : bytes;
+      text = new TextDecoder('utf-8').decode(b);
+    }
+    parseWordCSV(text);
+  };
+  reader.readAsArrayBuffer(file);
   event.target.value = '';
 }
 
