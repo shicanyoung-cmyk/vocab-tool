@@ -499,7 +499,9 @@ let searchUnit = '';
 let searchWord = '';
 
 // ========== Image Loading (with IndexedDB cache + lazy load) ==========
-const IMG_BASE = 'images/';
+const IMG_BASE = location.hostname.endsWith('github.io') 
+  ? 'https://shicanyoung-cmyk.github.io/vocab-tool/images/' 
+  : 'images/';
 const IMG_DB_NAME = 'vocab-images';
 const IMG_DB_STORE = 'images';
 let imgDb = null;
@@ -522,18 +524,24 @@ function openImageDB() {
 async function getCachedImage(key) {
   try {
     const db = await openImageDB();
+    if (!db) { console.log('[Cache] DB not available for key:', key); return null; }
     return new Promise((resolve) => {
       const tx = db.transaction(IMG_DB_STORE, 'readonly');
       const store = tx.objectStore(IMG_DB_STORE);
       const req = store.get(key);
       req.onsuccess = e => {
         const result = e.target.result;
-        if (result) resolve(URL.createObjectURL(new Blob([result.data], {type: result.mime || 'image/png'})));
-        else resolve(null);
+        if (result) { 
+          console.log('[Cache] HIT:', key);
+          resolve(URL.createObjectURL(new Blob([result.data], {type: result.mime || 'image/png'})));
+        } else { 
+          console.log('[Cache] MISS:', key);
+          resolve(null); 
+        }
       };
-      req.onerror = () => resolve(null);
+      req.onerror = () => { console.log('[Cache] Error reading:', key); resolve(null); };
     });
-  } catch(e) { return null; }
+  } catch(e) { console.log('[Cache] Exception:', e); return null; }
 }
 
 async function cacheImage(key, blob) {
@@ -551,31 +559,33 @@ async function loadImage(imgEl, word, imagePrompt, unitId) {
   imgEl.alt = word;
 
   const cacheKey = unitId + '/' + word.toLowerCase();
-
-  // 1. Check IndexedDB cache
+  console.log('[LoadImage]', word, '| checking cache...');
   const cached = await getCachedImage(cacheKey);
   if (cached) {
+    console.log('[LoadImage]', word, '| using IndexedDB cache');
     imgEl.src = cached;
     return;
   }
 
   // 2. Try local image on GitHub Pages
   const localUrl = IMG_BASE + unitId + '/' + word.toLowerCase() + '.png';
+  console.log('[LoadImage]', word, '| trying local:', localUrl);
   const localOk = await new Promise(resolve => {
     const testImg = new Image();
-    testImg.onload = () => resolve(true);
-    testImg.onerror = () => resolve(false);
+    testImg.onload = () => { console.log('[LoadImage]', word, '| local image OK'); resolve(true); };
+    testImg.onerror = () => { console.log('[LoadImage]', word, '| local image FAIL'); resolve(false); };
     testImg.src = localUrl;
   });
 
   if (localOk) {
     imgEl.src = localUrl;
     // Also cache it
-    fetch(localUrl).then(r => r.ok ? r.blob() : null).then(b => { if (b) cacheImage(cacheKey, b); });
+    fetch(localUrl).then(r => r.ok ? r.blob() : null).then(b => { if (b) { console.log('[LoadImage]', word, '| caching local image'); cacheImage(cacheKey, b); } });
     return;
   }
 
   // 3. Fallback: generate via Pollinations API (sequential to avoid 429)
+  console.log('[LoadImage]', word, '| falling back to Pollinations API');
   imgEl.style.background = '#e8edf3';
   imgQueue.push({ imgEl, word, imagePrompt, unitId, cacheKey });
   processImgQueue();
@@ -586,11 +596,13 @@ const imgQueue = [];
 let imgProcessing = false;
 
 async function processImgQueue() {
-  if (imgProcessing || imgQueue.length === 0) return;
+  if (imgProcessing || imgQueue.length === 0) { console.log('[Queue] idle, length:', imgQueue.length); return; }
   imgProcessing = true;
+  console.log('[Queue] started, length:', imgQueue.length);
   while (imgQueue.length > 0) {
     const item = imgQueue.shift();
-    if (!item.imgEl.isConnected) continue;
+    console.log('[Queue] generating:', item.word, '| remaining:', imgQueue.length);
+    if (!item.imgEl.isConnected) { console.log('[Queue] SKIP (disconnected):', item.word); continue; }
     try {
       const style = getUnitStyle(item.unitId);
       const prompt = item.imagePrompt || generateDefaultPrompt(item.word, style);
@@ -600,16 +612,20 @@ async function processImgQueue() {
       const resp = await fetch(url);
       if (resp.ok) {
         const blob = await resp.blob();
+        console.log('[Queue] OK:', item.word, '| size:', blob.size);
         if (item.imgEl.isConnected) item.imgEl.src = URL.createObjectURL(blob);
         cacheImage(item.cacheKey, blob);
+      } else {
+        console.log('[Queue] FAIL:', item.word, '| status:', resp.status);
       }
     } catch (e) {
-      console.warn('Image generation failed:', item.word, e);
+      console.warn('[Queue] ERROR:', item.word, e);
     }
     await new Promise(r => setTimeout(r, 1500));
   }
   imgProcessing = false;
   setStatus('Ready');
+  console.log('[Queue] finished');
 }
 
 // True lazy loading via IntersectionObserver
